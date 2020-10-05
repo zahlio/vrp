@@ -5,22 +5,30 @@ mod evolution_test;
 use crate::construction::heuristics::InsertionContext;
 use crate::solver::population::DominancePopulation;
 use crate::solver::termination::*;
-use crate::solver::{Metrics, Population, RefinementContext};
+use crate::solver::{Metrics, Population, RefinementContext, Telemetry};
 use crate::utils::Timer;
 
 mod config;
 pub use self::config::*;
 
-pub mod run_straight;
+mod run_branches;
+pub use self::run_branches::RunBranches;
+
+mod run_straight;
+pub use self::run_straight::RunStraight;
 
 /// Defines evolution result type.
-pub type EvolutionResult = Result<(Box<dyn Population>, Option<Metrics>), String>;
+pub type EvolutionResult = Result<(Box<dyn Population + Send + Sync>, Option<Metrics>), String>;
 
 /// An evolution algorithm strategy.
 pub trait EvolutionStrategy {
-    /// Runs evolution for given `refinement_ctx` using evolution `config`.
-    /// Returns populations filled with solutions and, optionally, algorithm evaluation metrics.
-    fn run(&self, refinement_ctx: RefinementContext, config: EvolutionConfig) -> EvolutionResult;
+    /// Runs evolution for given `refinement_ctx`.
+    fn run(
+        &self,
+        refinement_ctx: RefinementContext,
+        operators: OperatorConfig,
+        telemetry: Telemetry,
+    ) -> EvolutionResult;
 }
 
 /// An entity which simulates evolution process.
@@ -51,7 +59,7 @@ impl EvolutionSimulator {
         let refinement_ctx = self.create_refinement_ctx()?;
         let strategy = self.config.strategy.clone();
 
-        strategy.run(refinement_ctx, self.config)
+        strategy.run(refinement_ctx, self.config.operators, self.config.telemetry)
     }
 
     /// Creates refinement context with population containing initial individuals.
@@ -93,7 +101,7 @@ impl EvolutionSimulator {
         let _ = (refinement_ctx.population.size()..self.config.population.initial.size).try_for_each(|idx| {
             let item_time = Timer::start();
 
-            if self.config.termination.is_termination(&mut refinement_ctx) {
+            if self.config.operators.termination.is_termination(&mut refinement_ctx) {
                 return Err(());
             }
 

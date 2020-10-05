@@ -14,22 +14,34 @@ use std::sync::Arc;
 pub struct EvolutionConfig {
     /// An original problem.
     pub problem: Arc<Problem>,
+
+    /// A evolution operators config.
+    pub operators: OperatorConfig,
+
+    /// A population configuration
+    pub population: PopulationConfig,
+
+    /// A quota for evolution execution.
+    pub quota: Option<Arc<dyn Quota + Send + Sync>>,
+
+    /// An evolution strategy.
+    pub strategy: Arc<dyn EvolutionStrategy + Send + Sync>,
+
+    /// Random generator.
+    pub random: Arc<dyn Random + Send + Sync>,
+
+    /// A telemetry to be used.
+    pub telemetry: Telemetry,
+}
+
+#[derive(Clone)]
+pub struct OperatorConfig {
     /// A selection defines parents to be selected on each generation.
-    pub selection: Arc<dyn Selection>,
+    pub selection: Arc<dyn Selection + Send + Sync>,
     /// A mutation applied to population.
     pub mutation: Arc<dyn Mutation + Send + Sync>,
     /// A termination defines when evolution should stop.
-    pub termination: Arc<dyn Termination>,
-    /// A quota for evolution execution.
-    pub quota: Option<Arc<dyn Quota + Send + Sync>>,
-    /// A population configuration
-    pub population: PopulationConfig,
-    /// An evolution strategy.
-    pub strategy: Arc<dyn EvolutionStrategy>,
-    /// Random generator.
-    pub random: Arc<dyn Random + Send + Sync>,
-    /// A telemetry to be used.
-    pub telemetry: Telemetry,
+    pub termination: Arc<dyn Termination + Send + Sync>,
 }
 
 /// Contains population specific properties.
@@ -54,17 +66,19 @@ impl EvolutionConfig {
     pub fn new(problem: Arc<Problem>) -> Self {
         Self {
             problem: problem.clone(),
-            selection: Arc::new(NaiveSelection::new(get_cpus())),
-            mutation: Arc::new(NaiveBranching::new(
-                Arc::new(RuinAndRecreate::new_from_problem(problem)),
-                (0.0001, 0.1, 0.001),
-                1.5,
-                2..4,
-            )),
-            termination: Arc::new(CompositeTermination::new(vec![
-                Box::new(MaxTime::new(300.)),
-                Box::new(MaxGeneration::new(3000)),
-            ])),
+            operators: OperatorConfig {
+                selection: Arc::new(NaiveSelection::new(get_cpus())),
+                mutation: Arc::new(NaiveBranching::new(
+                    Arc::new(RuinAndRecreate::new_from_problem(problem)),
+                    (0.0001, 0.1, 0.001),
+                    1.5,
+                    2..4,
+                )),
+                termination: Arc::new(CompositeTermination::new(vec![
+                    Box::new(MaxTime::new(300.)),
+                    Box::new(MaxGeneration::new(3000)),
+                ])),
+            },
             quota: None,
             random: Arc::new(DefaultRandom::default()),
             telemetry: Telemetry::new(TelemetryMode::None),
