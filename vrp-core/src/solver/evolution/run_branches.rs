@@ -18,8 +18,8 @@ impl EvolutionStrategy for RunBranches {
 mod branches {
     use super::*;
     use crate::construction::Quota;
-    use crate::solver::evolution::{should_stop, EvolutionStrategy, RunStraight};
-    use crate::solver::{DominancePopulation, Population, RefinementContext, Telemetry, TelemetryMode};
+    use crate::solver::evolution::{should_add_solution, should_stop};
+    use crate::solver::{DominancePopulation, Individual, Population, RefinementContext};
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
     use tokio::sync::mpsc;
@@ -36,38 +36,44 @@ mod branches {
         }
     }
 
-    fn create_branch(
-        refinement_ctx: &RefinementContext,
-        operators: OperatorConfig,
-        mut branch_sender: mpsc::Sender<Box<dyn Population + Sync + Send>>,
-        is_terminated: Arc<AtomicBool>,
-    ) {
-        let best_individuals = refinement_ctx
+    fn get_best_individuals(refinement_ctx: &RefinementContext) -> Vec<Individual> {
+        refinement_ctx
             .population
             .ranked()
             .filter_map(|(individual, rank)| if rank == 0 { Some(individual.deep_copy()) } else { None })
-            .collect();
+            .collect()
+    }
 
+    fn create_branch(
+        refinement_ctx: &RefinementContext,
+        operators: OperatorConfig,
+        mut branch_sender: mpsc::Sender<Vec<Individual>>,
+        is_terminated: Arc<AtomicBool>,
+    ) {
         let mut population = DominancePopulation::new(refinement_ctx.problem.clone(), 4);
-        population.add_all(best_individuals);
+        population.add_all(get_best_individuals(refinement_ctx));
 
-        let quota: Option<Arc<dyn Quota + Send + Sync>> =
-            Some(Arc::new(AtomicQuota { original: refinement_ctx.quota.clone(), is_terminated }));
-
-        let refinement_ctx = RefinementContext {
+        let mut refinement_ctx = RefinementContext {
             problem: refinement_ctx.problem.clone(),
             population: Box::new(population),
             state: Default::default(),
-            quota: quota.clone(),
+            quota: Some(Arc::new(AtomicQuota { original: refinement_ctx.quota.clone(), is_terminated })),
             statistics: Default::default(),
         };
 
         tokio::spawn(async move {
-            let (population, _) = RunStraight::default()
-                .run(refinement_ctx, operators, Telemetry::new(TelemetryMode::None))
-                .expect("cannot find any solution");
-            if let Err(_) = branch_sender.send(population).await {
-                // receiver dropped
+            while !should_stop(&mut refinement_ctx, operators.termination.as_ref()) {
+                let parents = operators.selection.select_parents(&refinement_ctx);
+                let offspring = operators.mutation.mutate_all(&refinement_ctx, parents);
+
+                if should_add_solution(&refinement_ctx) {
+                    refinement_ctx.population.add_all(offspring);
+                    let best_individuals = get_best_individuals(&refinement_ctx);
+
+                    if let Err(_) = branch_sender.send(best_individuals).await {
+                        return;
+                    }
+                }
             }
         });
     }
