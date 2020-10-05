@@ -1,85 +1,26 @@
 #[cfg(test)]
-#[path = "../../tests/unit/solver/evolution_test.rs"]
+#[path = "../../../tests/unit/solver/evolution_test.rs"]
 mod evolution_test;
 
 use crate::construction::heuristics::InsertionContext;
-use crate::construction::Quota;
-use crate::models::Problem;
-use crate::solver::mutation::*;
 use crate::solver::population::DominancePopulation;
-use crate::solver::selection::{NaiveSelection, Selection};
-use crate::solver::telemetry::Telemetry;
 use crate::solver::termination::*;
-use crate::solver::{Metrics, Population, RefinementContext, TelemetryMode};
-use crate::utils::{get_cpus, DefaultRandom, Random, Timer};
-use std::sync::Arc;
+use crate::solver::{Metrics, Population, RefinementContext};
+use crate::utils::Timer;
 
-/// A configuration which controls evolution execution.
-pub struct EvolutionConfig {
-    /// An original problem.
-    pub problem: Arc<Problem>,
-    /// A selection defines parents to be selected on each generation.
-    pub selection: Arc<dyn Selection>,
-    /// A mutation applied to population.
-    pub mutation: Arc<dyn Mutation + Send + Sync>,
-    /// A termination defines when evolution should stop.
-    pub termination: Arc<dyn Termination>,
-    /// A quota for evolution execution.
-    pub quota: Option<Arc<dyn Quota + Send + Sync>>,
-    /// A population configuration
-    pub population: PopulationConfig,
-    /// Random generator.
-    pub random: Arc<dyn Random + Send + Sync>,
-    /// A telemetry to be used.
-    pub telemetry: Telemetry,
-}
+mod config;
+pub use self::config::*;
 
-/// Contains population specific properties.
-pub struct PopulationConfig {
-    /// An initial solution config.
-    pub initial: InitialConfig,
-    /// Max population size.
-    pub max_size: usize,
-}
+pub mod run_straight;
 
-/// An initial solutions configuration.
-pub struct InitialConfig {
-    /// Initial size of population to be generated.
-    pub size: usize,
-    /// Create methods to produce initial individuals.
-    pub methods: Vec<(Box<dyn Recreate + Send + Sync>, usize)>,
-    /// Initial individuals in population.
-    pub individuals: Vec<InsertionContext>,
-}
+/// Defines evolution result type.
+pub type EvolutionResult = Result<(Box<dyn Population>, Option<Metrics>), String>;
 
-impl EvolutionConfig {
-    pub fn new(problem: Arc<Problem>) -> Self {
-        Self {
-            problem: problem.clone(),
-            selection: Arc::new(NaiveSelection::new(get_cpus())),
-            mutation: Arc::new(NaiveBranching::new(
-                Arc::new(RuinAndRecreate::new_from_problem(problem)),
-                (0.0001, 0.1, 0.001),
-                1.5,
-                2..4,
-            )),
-            termination: Arc::new(CompositeTermination::new(vec![
-                Box::new(MaxTime::new(300.)),
-                Box::new(MaxGeneration::new(3000)),
-            ])),
-            quota: None,
-            random: Arc::new(DefaultRandom::default()),
-            telemetry: Telemetry::new(TelemetryMode::None),
-            population: PopulationConfig {
-                max_size: 4,
-                initial: InitialConfig {
-                    size: 1,
-                    methods: vec![(Box::new(RecreateWithCheapest::default()), 10)],
-                    individuals: vec![],
-                },
-            },
-        }
-    }
+/// An evolution algorithm strategy.
+pub trait EvolutionStrategy {
+    /// Runs evolution for given `refinement_ctx` using evolution `config`.
+    /// Returns populations filled with solutions and, optionally, algorithm evaluation metrics.
+    fn run(&self, refinement_ctx: RefinementContext, config: EvolutionConfig) -> EvolutionResult;
 }
 
 /// An entity which simulates evolution process.
@@ -88,6 +29,7 @@ pub struct EvolutionSimulator {
 }
 
 impl EvolutionSimulator {
+    /// Creates a new instance of `EvolutionSimulator` with evolution `config`.
     pub fn new(config: EvolutionConfig) -> Result<Self, String> {
         if config.population.initial.size < 1 {
             return Err("initial size should be greater than 0".to_string());
@@ -104,33 +46,18 @@ impl EvolutionSimulator {
         Ok(Self { config })
     }
 
-    /// Runs evolution for given `problem` using evolution `config`.
-    /// Returns populations filled with solutions.
-    pub fn run(mut self) -> Result<(Box<dyn Population>, Option<Metrics>), String> {
-        self.config.telemetry.start();
+    /// Runs evolution.
+    pub fn run(mut self) -> EvolutionResult {
+        let refinement_ctx = self.create_refinement_ctx()?;
+        let strategy = self.config.strategy.clone();
 
-        let mut refinement_ctx = self.create_refinement_ctx()?;
-
-        while !self.should_stop(&mut refinement_ctx) {
-            let generation_time = Timer::start();
-
-            let parents = self.config.selection.select_parents(&refinement_ctx);
-
-            let offspring = self.config.mutation.mutate_all(&refinement_ctx, parents);
-
-            let is_improved =
-                if should_add_solution(&refinement_ctx) { refinement_ctx.population.add_all(offspring) } else { false };
-
-            self.config.telemetry.on_generation(&mut refinement_ctx, generation_time, is_improved);
-        }
-
-        self.config.telemetry.on_result(&refinement_ctx);
-
-        Ok((refinement_ctx.population, self.config.telemetry.get_metrics()))
+        strategy.run(refinement_ctx, self.config)
     }
 
     /// Creates refinement context with population containing initial individuals.
     fn create_refinement_ctx(&mut self) -> Result<RefinementContext, String> {
+        self.config.telemetry.start();
+
         let mut refinement_ctx = RefinementContext::new(
             self.config.problem.clone(),
             Box::new(DominancePopulation::new(self.config.problem.clone(), self.config.population.max_size)),
@@ -193,13 +120,6 @@ impl EvolutionSimulator {
 
         Ok(refinement_ctx)
     }
-
-    fn should_stop(&self, refinement_ctx: &mut RefinementContext) -> bool {
-        let is_terminated = self.config.termination.is_termination(refinement_ctx);
-        let is_quota_reached = refinement_ctx.quota.as_ref().map_or(false, |q| q.is_reached());
-
-        is_terminated || is_quota_reached
-    }
 }
 
 fn should_add_solution(refinement_ctx: &RefinementContext) -> bool {
@@ -208,4 +128,11 @@ fn should_add_solution(refinement_ctx: &RefinementContext) -> bool {
 
     // NOTE when interrupted, population can return solution with worse primary objective fitness values as first
     is_population_empty || !is_quota_reached
+}
+
+fn should_stop(refinement_ctx: &mut RefinementContext, termination: &dyn Termination) -> bool {
+    let is_terminated = termination.is_termination(refinement_ctx);
+    let is_quota_reached = refinement_ctx.quota.as_ref().map_or(false, |q| q.is_reached());
+
+    is_terminated || is_quota_reached
 }
