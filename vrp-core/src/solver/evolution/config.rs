@@ -2,7 +2,7 @@ use crate::construction::heuristics::InsertionContext;
 use crate::construction::Quota;
 use crate::models::Problem;
 use crate::solver::evolution::run_straight::RunStraight;
-use crate::solver::evolution::EvolutionStrategy;
+use crate::solver::evolution::{EvolutionStrategy, RunBranches};
 use crate::solver::mutation::*;
 use crate::solver::selection::{NaiveSelection, Selection};
 use crate::solver::termination::*;
@@ -90,7 +90,7 @@ impl EvolutionConfig {
                     individuals: vec![],
                 },
             },
-            strategy: Arc::new(RunStraight::default()),
+            strategy: Arc::new(RunBranches::default()),
         }
     }
 }

@@ -251,9 +251,9 @@
   },
   "telemetry": {
     "logging": {
-      "enabled": false,
-      "logBest": 100,
-      "logPopulation": 1000
+      "enabled": true,
+      "logBest": 1,
+      "logPopulation": 100
     },
     "metrics": {
       "enabled": false,

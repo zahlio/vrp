@@ -1,16 +1,23 @@
 use crate::solver::evolution::{EvolutionResult, EvolutionStrategy, OperatorConfig};
 use crate::solver::{RefinementContext, Telemetry};
 
+/// An evolution algorithm which run multiple branches (islands) on each generations.
 pub struct RunBranches {}
+
+impl Default for RunBranches {
+    fn default() -> Self {
+        Self {}
+    }
+}
 
 impl EvolutionStrategy for RunBranches {
     fn run(
         &self,
         refinement_ctx: RefinementContext,
         operators: OperatorConfig,
-        _telemetry: Telemetry,
+        telemetry: Telemetry,
     ) -> EvolutionResult {
-        branches::run_evolution(refinement_ctx, operators)
+        branches::run_evolution(refinement_ctx, operators, telemetry)
     }
 }
 
@@ -19,7 +26,8 @@ mod branches {
     use super::*;
     use crate::construction::Quota;
     use crate::solver::evolution::{should_add_solution, should_stop};
-    use crate::solver::{DominancePopulation, Individual, Population, RefinementContext};
+    use crate::solver::{DominancePopulation, Individual, Population, Statistics};
+    use crate::utils::{Timer, get_cpus};
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
     use tokio::sync::mpsc;
@@ -47,8 +55,8 @@ mod branches {
     fn create_branch(
         refinement_ctx: &RefinementContext,
         operators: OperatorConfig,
-        mut branch_sender: mpsc::Sender<Vec<Individual>>,
         is_terminated: Arc<AtomicBool>,
+        mut branch_sender: mpsc::Sender<Option<Vec<Individual>>>,
     ) {
         let mut population = DominancePopulation::new(refinement_ctx.problem.clone(), 4);
         population.add_all(get_best_individuals(refinement_ctx));
@@ -58,7 +66,7 @@ mod branches {
             population: Box::new(population),
             state: Default::default(),
             quota: Some(Arc::new(AtomicQuota { original: refinement_ctx.quota.clone(), is_terminated })),
-            statistics: Default::default(),
+            statistics: Statistics { generation: 1, improvement_all_ratio: 1., improvement_1000_ratio: 1. },
         };
 
         tokio::spawn(async move {
@@ -67,8 +75,13 @@ mod branches {
                 let offspring = operators.mutation.mutate_all(&refinement_ctx, parents);
 
                 if should_add_solution(&refinement_ctx) {
-                    refinement_ctx.population.add_all(offspring);
-                    let best_individuals = get_best_individuals(&refinement_ctx);
+                    let is_improved = refinement_ctx.population.add_all(offspring);
+
+                    let best_individuals = if is_improved {
+                        Some(get_best_individuals(&refinement_ctx))
+                    } else {
+                        None
+                    };
 
                     if let Err(_) = branch_sender.send(best_individuals).await {
                         return;
@@ -78,23 +91,65 @@ mod branches {
         });
     }
 
-    pub fn run_evolution(mut refinement_ctx: RefinementContext, operators: OperatorConfig) -> EvolutionResult {
-        while !should_stop(&mut refinement_ctx, operators.termination.as_ref()) {
-            // TODO determine from config
-            let branches = 10_usize;
-            let (branch_sender, mut _root_receiver) = mpsc::channel(1);
-            let is_terminated = Arc::new(AtomicBool::new(false));
+    async fn collect_individuals(
+        refinement_ctx: &mut RefinementContext,
+        mut root_receiver: mpsc::Receiver<Option<Vec<Individual>>>,
+    ) -> bool {
+        let mut chunks = 0;
+        let mut is_improved = false;
+        while let Some(individuals) = root_receiver.recv().await {
+            if let Some(individuals) = individuals {
+                //is_improved = refinement_ctx.population.add_all(individuals);
+            }
+            chunks += 1;
 
-            (0..branches).for_each(|_| {
-                create_branch(&refinement_ctx, operators.clone(), branch_sender.clone(), is_terminated.clone());
-            });
-
-            drop(branch_sender);
+            if chunks == 200 {
+                break;
+            }
         }
 
-        unimplemented!()
+        is_improved
+    }
+
+    pub fn run_evolution(
+        mut refinement_ctx: RefinementContext,
+        operators: OperatorConfig,
+        mut telemetry: Telemetry,
+    ) -> EvolutionResult {
+        tokio::runtime::Runtime::new().expect("cannot create async runtime").block_on(async move {
+            while !should_stop(&mut refinement_ctx, operators.termination.as_ref()) {
+                let branches = 32;
+                let (branch_sender, root_receiver) = mpsc::channel(32);
+                let is_terminated = Arc::new(AtomicBool::new(false));
+                let generation_time = Timer::start();
+
+                (0..branches).for_each(|_| {
+                    create_branch(&refinement_ctx, operators.clone(), is_terminated.clone(), branch_sender.clone());
+                });
+
+                drop(branch_sender);
+
+                let is_improved = collect_individuals(&mut refinement_ctx, root_receiver).await;
+
+                telemetry.on_generation(&mut refinement_ctx, generation_time, is_improved);
+            }
+
+            telemetry.on_result(&refinement_ctx);
+
+            Ok((refinement_ctx.population, telemetry.get_metrics()))
+        })
     }
 }
 
 #[cfg(target_arch = "wasm32")]
-mod branches {}
+mod branches {
+    use super::*;
+
+    pub fn run_evolution(
+        refinement_ctx: RefinementContext,
+        operators: OperatorConfig,
+        telemetry: Telemetry,
+    ) -> EvolutionResult {
+        RunStraight::default().run(refinement_ctx, operatorus, telemetry)
+    }
+}
