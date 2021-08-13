@@ -1,6 +1,6 @@
 use crate::construction::constraints::locking::StrictLockingModule;
 use crate::construction::constraints::{ActivityConstraintViolation, RouteConstraintViolation};
-use crate::construction::heuristics::ActivityContext;
+use crate::construction::heuristics::{ActivityContext, ActivityPosition};
 use crate::helpers::construction::constraints::create_constraint_pipeline_with_module;
 use crate::helpers::models::domain::create_empty_solution_context;
 use crate::helpers::models::problem::*;
@@ -169,7 +169,7 @@ fn can_lock_jobs_to_position_in_tour_impl(
     let result = pipeline.evaluate_hard_activity(
         &create_route_context_with_activities(&fleet, "v1", vec![]),
         &ActivityContext {
-            index: 0,
+            position: &ActivityPosition::Single(0),
             prev: &prev,
             target: &test_activity_with_job(test_single_with_id("new")),
             next: Some(&next),

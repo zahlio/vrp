@@ -2,7 +2,6 @@
 #[path = "../../../tests/unit/construction/probing/repair_solution_test.rs"]
 mod repair_solution_test;
 
-use crate::construction::constraints::ConstraintPipeline;
 use crate::construction::heuristics::*;
 use crate::models::common::TimeSpan;
 use crate::models::problem::{Job, Multi, Single};
@@ -23,7 +22,6 @@ pub fn repair_solution_from_unknown(
     prepare_insertion_ctx(&mut new_insertion_ctx);
 
     let mut assigned_jobs = get_assigned_jobs(&new_insertion_ctx);
-    let constraint = new_insertion_ctx.problem.constraint.clone();
 
     let unassigned = insertion_ctx
         .solution
@@ -33,8 +31,7 @@ pub fn repair_solution_from_unknown(
         .map(|route_ctx| {
             let route_idx = get_new_route_ctx_idx(&mut new_insertion_ctx, route_ctx);
 
-            let synchronized =
-                synchronize_jobs(route_ctx, &mut new_insertion_ctx, route_idx, &assigned_jobs, &constraint);
+            let synchronized = synchronize_jobs(route_ctx, &mut new_insertion_ctx, route_idx, &assigned_jobs);
 
             assigned_jobs.extend(synchronized.keys().cloned());
 
@@ -88,7 +85,6 @@ fn synchronize_jobs(
     new_insertion_ctx: &mut InsertionContext,
     route_idx: usize,
     assigned_jobs: &HashSet<Job>,
-    constraint: &ConstraintPipeline,
 ) -> HashMap<Job, Vec<Arc<Single>>> {
     let position = InsertionPosition::Last;
     let result_selector = BestResultSelector::default();
@@ -108,12 +104,12 @@ fn synchronize_jobs(
                 let insertion_result = evaluate_single_constraint_in_route(
                     &job,
                     single,
-                    constraint,
                     new_insertion_ctx,
                     new_insertion_ctx.solution.routes.get(route_idx).unwrap(),
                     position,
                     0.,
                     None,
+                    &mut InsertionCache::new(&new_insertion_ctx),
                     &result_selector,
                 );
 

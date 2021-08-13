@@ -81,6 +81,9 @@ pub const TOTAL_VALUE_KEY: i32 = 16;
 /// A key which tracks tour order statistics.
 pub const TOUR_ORDER_KEY: i32 = 17;
 
+/// An insertion cache key.
+pub const INSERTION_CACHE_KEY: i32 = 666;
+
 mod pipeline;
 pub use self::pipeline::*;
 

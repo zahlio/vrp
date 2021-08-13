@@ -31,6 +31,7 @@ pub fn evaluate_job_insertion_in_route(
     job: &Job,
     position: InsertionPosition,
     alternative: InsertionResult,
+    cache: &mut InsertionCache,
     result_selector: &(dyn ResultSelector + Send + Sync),
 ) -> InsertionResult {
     // NOTE do not evaluate unassigned job in unmodified route if it has a positive code
@@ -39,9 +40,7 @@ pub fn evaluate_job_insertion_in_route(
         _ => {}
     }
 
-    let constraint = &ctx.problem.constraint;
-
-    if let Some(violation) = constraint.evaluate_hard_route(&ctx.solution, route_ctx, job) {
+    if let Some(violation) = cache.evaluate_hard_route(&ctx.solution, route_ctx, job) {
         return result_selector.select_insertion(
             ctx,
             alternative,
@@ -49,7 +48,7 @@ pub fn evaluate_job_insertion_in_route(
         );
     }
 
-    let route_costs = constraint.evaluate_soft_route(&ctx.solution, route_ctx, job);
+    let route_costs = cache.evaluate_soft_route(&ctx.solution, route_ctx, job);
     let best_known_cost = match &alternative {
         InsertionResult::Success(success) => Some(success.cost),
         _ => None,
@@ -66,11 +65,11 @@ pub fn evaluate_job_insertion_in_route(
         alternative,
         evaluate_job_constraint_in_route(
             job,
-            constraint,
             route_ctx,
             position,
             route_costs,
             best_known_cost,
+            cache,
             result_selector,
         ),
     )
@@ -80,19 +79,19 @@ pub fn evaluate_job_insertion_in_route(
 /// NOTE: doesn't evaluate constraints on route level.
 pub fn evaluate_job_constraint_in_route(
     job: &Job,
-    constraint: &ConstraintPipeline,
     route_ctx: &RouteContext,
     position: InsertionPosition,
     route_costs: Cost,
     best_known_cost: Option<Cost>,
+    cache: &mut InsertionCache,
     r_selector: &(dyn ResultSelector + Send + Sync),
 ) -> InsertionResult {
     match job {
         Job::Single(single) => {
-            evaluate_single(job, single, constraint, route_ctx, position, route_costs, best_known_cost, r_selector)
+            evaluate_single(job, single, route_ctx, position, route_costs, best_known_cost, cache, r_selector)
         }
         Job::Multi(multi) => {
-            evaluate_multi(job, multi, constraint, route_ctx, position, route_costs, best_known_cost, r_selector)
+            evaluate_multi(job, multi, route_ctx, position, route_costs, best_known_cost, cache, r_selector)
         }
     }
 }
@@ -101,18 +100,18 @@ pub fn evaluate_job_constraint_in_route(
 pub(crate) fn evaluate_single_constraint_in_route(
     job: &Job,
     single: &Arc<Single>,
-    constraint: &ConstraintPipeline,
     insertion_ctx: &InsertionContext,
     route_ctx: &RouteContext,
     position: InsertionPosition,
     route_costs: Cost,
     best_known_cost: Option<Cost>,
+    cache: &mut InsertionCache,
     result_selector: &(dyn ResultSelector + Send + Sync),
 ) -> InsertionResult {
-    if let Some(violation) = constraint.evaluate_hard_route(&insertion_ctx.solution, route_ctx, job) {
+    if let Some(violation) = cache.evaluate_hard_route(&insertion_ctx.solution, route_ctx, job) {
         InsertionResult::Failure(InsertionFailure { constraint: violation.code, stopped: true, job: Some(job.clone()) })
     } else {
-        evaluate_single(job, single, constraint, route_ctx, position, route_costs, best_known_cost, result_selector)
+        evaluate_single(job, single, route_ctx, position, route_costs, best_known_cost, cache, result_selector)
     }
 }
 
@@ -120,23 +119,24 @@ pub(crate) fn evaluate_single_constraint_in_route(
 fn evaluate_single(
     job: &Job,
     single: &Arc<Single>,
-    constraint: &ConstraintPipeline,
     route_ctx: &RouteContext,
     position: InsertionPosition,
     route_costs: Cost,
     best_known_cost: Option<Cost>,
+    cache: &mut InsertionCache,
     result_selector: &(dyn ResultSelector + Send + Sync),
 ) -> InsertionResult {
     let insertion_idx = get_insertion_index(route_ctx, position);
     let mut activity = Activity::new_with_job(single.clone());
 
     let result = analyze_insertion_in_route(
-        constraint,
         route_ctx,
         insertion_idx,
         single,
         &mut activity,
         SingleContext::new(best_known_cost, 0),
+        &None,
+        cache,
         result_selector,
     );
 
@@ -154,11 +154,11 @@ fn evaluate_single(
 fn evaluate_multi(
     job: &Job,
     multi: &Arc<Multi>,
-    constraint: &ConstraintPipeline,
     route_ctx: &RouteContext,
     position: InsertionPosition,
     route_costs: Cost,
     best_known_cost: Option<Cost>,
+    cache: &mut InsertionCache,
     result_selector: &(dyn ResultSelector + Send + Sync),
 ) -> InsertionResult {
     let insertion_idx = get_insertion_index(route_ctx, position).unwrap_or(0);
@@ -166,7 +166,7 @@ fn evaluate_multi(
     let result = unwrap_from_result(multi.permutations().into_iter().try_fold(
         MultiContext::new(best_known_cost, insertion_idx),
         |acc_res, services| {
-            let mut shadow = ShadowContext::new(constraint, route_ctx);
+            let mut shadow = ShadowContext::new(cache.get_constraint(), route_ctx);
             let perm_res = unwrap_from_result(repeat(0).try_fold(MultiContext::new(None, insertion_idx), |out, _| {
                 if out.is_failure(route_ctx.route.tour.activity_count()) {
                     return Result::Err(out);
@@ -181,12 +181,13 @@ fn evaluate_multi(
                     let mut activity = Activity::new_with_job(service.clone());
                     // 3. analyze legs
                     let srv_res = analyze_insertion_in_route(
-                        constraint,
                         &shadow.ctx,
                         None,
                         service,
                         &mut activity,
                         SingleContext::new(None, in1.next_index),
+                        &in1.activities,
+                        cache,
                         result_selector,
                     );
 
@@ -217,44 +218,48 @@ fn evaluate_multi(
 }
 
 fn analyze_insertion_in_route(
-    constraint: &ConstraintPipeline,
     route_ctx: &RouteContext,
     insertion_idx: Option<usize>,
     single: &Single,
     target: &mut Activity,
     init: SingleContext,
+    activities: &Option<Vec<(Activity, usize)>>,
+    cache: &mut InsertionCache,
     result_selector: &(dyn ResultSelector + Send + Sync),
 ) -> SingleContext {
     unwrap_from_result(match insertion_idx {
         Some(idx) => {
             if let Some(leg) = route_ctx.route.tour.legs().nth(idx) {
-                analyze_insertion_in_route_leg(constraint, route_ctx, leg, single, target, init, result_selector)
+                analyze_insertion_in_route_leg(route_ctx, leg, single, target, init, activities, cache, result_selector)
             } else {
                 Ok(init)
             }
         }
         None => route_ctx.route.tour.legs().skip(init.index).try_fold(init, |out, leg| {
-            analyze_insertion_in_route_leg(constraint, route_ctx, leg, single, target, out, result_selector)
+            analyze_insertion_in_route_leg(route_ctx, leg, single, target, out, activities, cache, result_selector)
         }),
     })
 }
 
 fn analyze_insertion_in_route_leg<'a>(
-    constraint: &ConstraintPipeline,
     route_ctx: &RouteContext,
     leg: (&'a [Activity], usize),
     single: &Single,
     target: &mut Activity,
     out: SingleContext,
+    activities: &Option<Vec<(Activity, usize)>>,
+    cache: &mut InsertionCache,
     result_selector: &(dyn ResultSelector + Send + Sync),
 ) -> Result<SingleContext, SingleContext> {
-    let (items, index) = leg;
+    let (items, leg_idx) = leg;
     let (prev, next) = match items {
         [prev] => (prev, None),
         [prev, next] => (prev, Some(next)),
         _ => panic!("Unexpected route leg configuration."),
     };
+    let position = create_activity_position(leg_idx, activities);
     let start_time = route_ctx.route.tour.start().unwrap().schedule.departure;
+
     // analyze service details
     single.places.iter().try_fold(out, |in1, detail| {
         // analyze detail time windows
@@ -265,17 +270,19 @@ fn analyze_insertion_in_route_leg<'a>(
                 time: time.to_time_window(start_time),
             };
 
-            let activity_ctx = ActivityContext { index, prev, target, next };
+            let activity_ctx = ActivityContext { position: &position, prev, target, next };
 
-            if let Some(violation) = constraint.evaluate_hard_activity(route_ctx, &activity_ctx) {
+            if let Some(violation) = cache.evaluate_hard_activity(route_ctx, &activity_ctx) {
                 return SingleContext::fail(violation, in2);
             }
 
-            let costs = constraint.evaluate_soft_activity(route_ctx, &activity_ctx);
+            let costs = cache.evaluate_soft_activity(route_ctx, &activity_ctx);
             let other_costs = in2.cost.unwrap_or(f64::MAX);
 
             match result_selector.select_cost(route_ctx, costs, other_costs) {
-                Either::Left => SingleContext::success(activity_ctx.index, costs, target.place.clone()),
+                Either::Left => {
+                    SingleContext::success(activity_ctx.position.get_leg_idx(), costs, target.place.clone())
+                }
                 Either::Right => SingleContext::skip(in2),
             }
         })
@@ -472,6 +479,14 @@ impl<'a> ShadowContext<'a> {
             self.is_dirty = false;
         }
     }
+}
+
+fn create_activity_position(leg_idx: usize, activities: &Option<Vec<(Activity, usize)>>) -> ActivityPosition {
+    activities
+        .as_ref()
+        .map(|activities| activities.iter().map(|(_, idx)| *idx).chain(std::iter::once(leg_idx)).collect::<Vec<_>>())
+        .map(|activities| ActivityPosition::Sequence(activities))
+        .unwrap_or_else(|| ActivityPosition::Single(leg_idx))
 }
 
 fn concat_activities(

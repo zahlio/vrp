@@ -427,7 +427,7 @@ impl<T: Load + Add<Output = T> + Sub<Output = T> + 'static> HardActivityConstrai
             if CapacityConstraintModule::<T>::can_handle_demand_on_intervals(
                 route_ctx,
                 demand,
-                Some(activity_ctx.index),
+                Some(activity_ctx.position.get_leg_idx()),
             ) {
                 None
             } else {

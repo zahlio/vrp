@@ -77,9 +77,13 @@ impl InsertionHeuristic {
             let jobs = job_selector.select(&mut ctx).collect::<Vec<Job>>();
             let routes = route_selector.select(&mut ctx, jobs.as_slice()).collect::<Vec<RouteContext>>();
 
-            let result =
-                self.insertion_evaluator.evaluate_all(&ctx, jobs.as_slice(), routes.as_slice(), result_selector);
+            let (result, job) = {
+                let (result, cache) =
+                    self.insertion_evaluator.evaluate_all(&ctx, jobs.as_slice(), routes.as_slice(), result_selector);
+                (result, cache.job)
+            };
 
+            InsertionCache::synchronize(&mut ctx, job);
             apply_insertion_result(&mut ctx, result);
         }
 
@@ -123,6 +127,7 @@ impl InsertionResult {
 }
 
 pub(crate) fn prepare_insertion_ctx(ctx: &mut InsertionContext) {
+    InsertionCache::ensure_cache(ctx);
     ctx.solution.required.extend(ctx.solution.unassigned.iter().map(|(job, _)| job.clone()));
     ctx.problem.constraint.accept_solution_state(&mut ctx.solution);
 }
@@ -142,6 +147,8 @@ pub(crate) fn apply_insertion_result(ctx: &mut InsertionContext, result: Inserti
                 ctx.solution.routes.push(success.context.deep_copy());
                 ctx.solution.routes.len() - 1
             });
+
+            InsertionCache::remove(ctx, &success.context.route.actor);
 
             let route_ctx = ctx.solution.routes.get_mut(route_index).unwrap();
             let route = route_ctx.route_mut();

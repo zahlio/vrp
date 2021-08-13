@@ -104,7 +104,16 @@ pub fn create_insertion_context(problem: Arc<Problem>, environment: Arc<Environm
 
     let mut insertion_ctx = InsertionContext {
         problem,
-        solution: SolutionContext { required, ignored: vec![], unassigned, locked, routes, registry, state },
+        solution: SolutionContext {
+            required,
+            ignored: vec![],
+            unassigned,
+            locked,
+            routes,
+            registry,
+            cache: Default::default(),
+            state,
+        },
         environment,
     };
 
@@ -148,6 +157,7 @@ pub fn create_insertion_context_from_solution(
             locked,
             routes,
             registry,
+            cache: Default::default(),
             state,
         },
         environment,
@@ -172,6 +182,7 @@ pub fn create_empty_insertion_context(problem: Arc<Problem>, environment: Arc<En
                 problem.as_ref(),
                 Registry::new(problem.fleet.as_ref(), environment.random.clone()),
             ),
+            cache: Default::default(),
             state: Default::default(),
         },
         environment,

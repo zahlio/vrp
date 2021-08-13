@@ -1,5 +1,5 @@
 use super::*;
-use crate::construction::constraints::{StrictLockingModule, TransportConstraintModule};
+use crate::construction::constraints::{ConstraintPipeline, StrictLockingModule, TransportConstraintModule};
 use crate::helpers::construction::constraints::create_simple_demand;
 use crate::helpers::models::problem::*;
 use crate::models::common::*;

@@ -3,6 +3,9 @@
 //! # Design
 //!
 
+mod cache;
+pub use self::cache::*;
+
 mod context;
 pub use self::context::*;
 

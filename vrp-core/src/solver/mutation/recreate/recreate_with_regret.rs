@@ -56,33 +56,33 @@ impl RegretInsertionEvaluator {
 }
 
 impl InsertionEvaluator for RegretInsertionEvaluator {
-    fn evaluate_job(
+    fn evaluate_job<'a>(
         &self,
-        ctx: &InsertionContext,
+        ctx: &'a InsertionContext,
         job: &Job,
         routes: &[RouteContext],
         result_selector: &(dyn ResultSelector + Send + Sync),
-    ) -> InsertionResult {
+    ) -> (InsertionResult, InsertionCache<'a>) {
         self.fallback_evaluator.evaluate_job(ctx, job, routes, result_selector)
     }
 
-    fn evaluate_route(
+    fn evaluate_route<'a>(
         &self,
-        ctx: &InsertionContext,
+        ctx: &'a InsertionContext,
         route: &RouteContext,
         jobs: &[Job],
         result_selector: &(dyn ResultSelector + Send + Sync),
-    ) -> InsertionResult {
+    ) -> (InsertionResult, InsertionCache<'a>) {
         self.fallback_evaluator.evaluate_route(ctx, route, jobs, result_selector)
     }
 
-    fn evaluate_all(
+    fn evaluate_all<'a>(
         &self,
-        ctx: &InsertionContext,
+        ctx: &'a InsertionContext,
         jobs: &[Job],
         routes: &[RouteContext],
         result_selector: &(dyn ResultSelector + Send + Sync),
-    ) -> InsertionResult {
+    ) -> (InsertionResult, InsertionCache<'a>) {
         let regret_index = ctx.environment.random.uniform_int(self.min as i32, self.max as i32) as usize;
 
         // NOTE no need to proceed with regret, fallback to more performant reducer
@@ -90,9 +90,9 @@ impl InsertionEvaluator for RegretInsertionEvaluator {
             return self.fallback_evaluator.evaluate_all(ctx, jobs, routes, result_selector);
         }
 
-        let mut results = self
-            .fallback_evaluator
-            .evaluate_and_collect_all(ctx, jobs, routes, result_selector)
+        let (results, cache) = self.fallback_evaluator.evaluate_and_collect_all(ctx, jobs, routes, result_selector);
+
+        let mut results = results
             .into_iter()
             .filter_map(|result| match result {
                 InsertionResult::Success(success) => Some(success),
@@ -136,7 +136,7 @@ impl InsertionEvaluator for RegretInsertionEvaluator {
 
             let (_, best_success) = results.swap_remove(0);
 
-            InsertionResult::Success(best_success)
+            (InsertionResult::Success(best_success), cache)
         } else {
             self.fallback_evaluator.evaluate_all(ctx, jobs, routes, result_selector)
         }

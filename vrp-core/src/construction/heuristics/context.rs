@@ -5,6 +5,7 @@ mod context_test;
 use crate::algorithms::nsga2::MultiObjective;
 use crate::construction::constraints::*;
 use crate::construction::heuristics::factories::*;
+use crate::construction::heuristics::SolutionCache;
 use crate::models::common::Cost;
 use crate::models::problem::*;
 use crate::models::solution::*;
@@ -12,6 +13,7 @@ use crate::models::{Extras, Problem, Solution};
 use crate::utils::{as_mut, compare_floats, Environment};
 use hashbrown::{HashMap, HashSet};
 use std::any::Any;
+use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -116,6 +118,9 @@ pub struct SolutionContext {
     /// Keeps track of used routes and resources.
     pub registry: RegistryContext,
 
+    /// Solution cache.
+    pub cache: SolutionCache,
+
     /// A collection of data associated with solution.
     pub state: HashMap<i32, StateValue>,
 }
@@ -155,6 +160,7 @@ impl SolutionContext {
             locked: self.locked.clone(),
             routes: self.routes.iter().map(|rc| rc.deep_copy()).collect(),
             registry: self.registry.deep_copy(),
+            cache: self.cache.clone(),
             state: self.state.clone(),
         }
     }
@@ -456,10 +462,51 @@ impl RegistryContext {
     }
 }
 
+/// Specifies activity insertion position information.
+#[derive(Clone)]
+pub enum ActivityPosition {
+    /// Single activity specified by leg index.
+    Single(usize),
+    /// Multiple activities specified by previously inserted activity indices and leg index.
+    Sequence(Vec<usize>),
+}
+
+impl ActivityPosition {
+    /// Get insertion position (route leg) index.
+    pub fn get_leg_idx(&self) -> usize {
+        match &self {
+            ActivityPosition::Single(leg_idx) => *leg_idx,
+            ActivityPosition::Sequence(indices) => *indices.last().expect("empty indices"),
+        }
+    }
+}
+
+impl PartialEq<ActivityPosition> for ActivityPosition {
+    fn eq(&self, other: &ActivityPosition) -> bool {
+        match (&self, other) {
+            (ActivityPosition::Single(l_leg), ActivityPosition::Single(r_leg)) => *l_leg == *r_leg,
+            (ActivityPosition::Single(_), _) => false,
+            (ActivityPosition::Sequence(l_indices), ActivityPosition::Sequence(r_indices)) => l_indices.eq(r_indices),
+            (ActivityPosition::Sequence(_), _) => false,
+        }
+    }
+}
+
+impl Eq for ActivityPosition {}
+
+impl Hash for ActivityPosition {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match &self {
+            ActivityPosition::Single(leg_idx) => leg_idx.hash(state),
+            ActivityPosition::Sequence(indices) => indices.hash(state),
+        }
+    }
+}
+
 /// Specifies insertion context for activity.
 pub struct ActivityContext<'a> {
-    /// Activity insertion index.
-    pub index: usize,
+    /// Target activity insertion position info.
+    pub position: &'a ActivityPosition,
 
     /// Previous activity.
     pub prev: &'a Activity,

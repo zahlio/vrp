@@ -53,33 +53,33 @@ impl SkipBestInsertionEvaluator {
 }
 
 impl InsertionEvaluator for SkipBestInsertionEvaluator {
-    fn evaluate_job(
+    fn evaluate_job<'a>(
         &self,
-        ctx: &InsertionContext,
+        ctx: &'a InsertionContext,
         job: &Job,
         routes: &[RouteContext],
         result_selector: &(dyn ResultSelector + Send + Sync),
-    ) -> InsertionResult {
+    ) -> (InsertionResult, InsertionCache<'a>) {
         self.fallback_evaluator.evaluate_job(ctx, job, routes, result_selector)
     }
 
-    fn evaluate_route(
+    fn evaluate_route<'a>(
         &self,
-        ctx: &InsertionContext,
+        ctx: &'a InsertionContext,
         route: &RouteContext,
         jobs: &[Job],
         result_selector: &(dyn ResultSelector + Send + Sync),
-    ) -> InsertionResult {
+    ) -> (InsertionResult, InsertionCache<'a>) {
         self.fallback_evaluator.evaluate_route(ctx, route, jobs, result_selector)
     }
 
-    fn evaluate_all(
+    fn evaluate_all<'a>(
         &self,
-        ctx: &InsertionContext,
+        ctx: &'a InsertionContext,
         jobs: &[Job],
         routes: &[RouteContext],
         result_selector: &(dyn ResultSelector + Send + Sync),
-    ) -> InsertionResult {
+    ) -> (InsertionResult, InsertionCache<'a>) {
         let skip_index = ctx.environment.random.uniform_int(self.min as i32, self.max as i32);
 
         // NOTE no need to proceed with skip, fallback to more performant reducer
@@ -87,7 +87,7 @@ impl InsertionEvaluator for SkipBestInsertionEvaluator {
             return self.fallback_evaluator.evaluate_all(ctx, jobs, routes, result_selector);
         }
 
-        let mut results = self.fallback_evaluator.evaluate_and_collect_all(ctx, jobs, routes, result_selector);
+        let (mut results, cache) = self.fallback_evaluator.evaluate_and_collect_all(ctx, jobs, routes, result_selector);
 
         // TODO use result_selector?
         results.sort_by(|a, b| match (a, b) {
@@ -111,6 +111,6 @@ impl InsertionEvaluator for SkipBestInsertionEvaluator {
             .next()
             .unwrap_or_else(|| panic!("Unexpected insertion results length"));
 
-        insertion_result
+        (insertion_result, cache)
     }
 }

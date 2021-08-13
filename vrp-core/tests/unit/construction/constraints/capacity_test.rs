@@ -1,5 +1,5 @@
 use crate::construction::constraints::*;
-use crate::construction::heuristics::{ActivityContext, RouteState};
+use crate::construction::heuristics::{ActivityContext, ActivityPosition, RouteState};
 use crate::helpers::construction::constraints::*;
 use crate::helpers::models::domain::create_empty_solution_context;
 use crate::helpers::models::problem::*;
@@ -120,7 +120,7 @@ fn can_evaluate_demand_on_activity_impl(
     pipeline.accept_route_state(&mut route_ctx);
     let target = test_activity_with_job(test_single_with_simple_demand(create_simple_demand(size)));
     let activity_ctx = ActivityContext {
-        index: 0,
+        position: &ActivityPosition::Single(0),
         prev: route_ctx.route.tour.get(neighbours.0).unwrap(),
         target: &target,
         next: route_ctx.route.tour.get(neighbours.1),

@@ -62,31 +62,31 @@ impl JobSelector for AllJobSelector {
 /// Evaluates insertion.
 pub trait InsertionEvaluator {
     /// Evaluates insertion of a single job into given collection of routes.
-    fn evaluate_job(
+    fn evaluate_job<'a>(
         &self,
-        ctx: &InsertionContext,
+        ctx: &'a InsertionContext,
         job: &Job,
         routes: &[RouteContext],
         result_selector: &(dyn ResultSelector + Send + Sync),
-    ) -> InsertionResult;
+    ) -> (InsertionResult, InsertionCache<'a>);
 
     /// Evaluates insertion of multiple jobs into given route.
-    fn evaluate_route(
+    fn evaluate_route<'a>(
         &self,
-        ctx: &InsertionContext,
+        ctx: &'a InsertionContext,
         route: &RouteContext,
         jobs: &[Job],
         result_selector: &(dyn ResultSelector + Send + Sync),
-    ) -> InsertionResult;
+    ) -> (InsertionResult, InsertionCache<'a>);
 
     /// Evaluates insertion of a job collection into given collection of routes.
-    fn evaluate_all(
+    fn evaluate_all<'a>(
         &self,
-        ctx: &InsertionContext,
+        ctx: &'a InsertionContext,
         jobs: &[Job],
         routes: &[RouteContext],
         result_selector: &(dyn ResultSelector + Send + Sync),
-    ) -> InsertionResult;
+    ) -> (InsertionResult, InsertionCache<'a>);
 }
 
 /// Evaluates job insertion in routes at given position.
@@ -107,18 +107,22 @@ impl PositionInsertionEvaluator {
     }
 
     /// Evaluates all jobs ad routes.
-    pub(crate) fn evaluate_and_collect_all(
+    pub(crate) fn evaluate_and_collect_all<'a>(
         &self,
-        ctx: &InsertionContext,
+        ctx: &'a InsertionContext,
         jobs: &[Job],
         routes: &[RouteContext],
         result_selector: &(dyn ResultSelector + Send + Sync),
-    ) -> Vec<InsertionResult> {
-        if Self::is_fold_jobs(ctx) {
+    ) -> (Vec<InsertionResult>, InsertionCache<'a>) {
+        let (results, caches): (Vec<_>, Vec<_>) = if Self::is_fold_jobs(ctx) {
             parallel_collect(jobs, |job| self.evaluate_job(ctx, job, routes, result_selector))
         } else {
             parallel_collect(routes, |route| self.evaluate_route(ctx, route, jobs, result_selector))
         }
+        .into_iter()
+        .unzip();
+
+        (results, caches.into_iter().fold(InsertionCache::new(ctx), InsertionCache::merge))
     }
 
     fn is_fold_jobs(ctx: &InsertionContext) -> bool {
@@ -129,50 +133,78 @@ impl PositionInsertionEvaluator {
 }
 
 impl InsertionEvaluator for PositionInsertionEvaluator {
-    fn evaluate_job(
+    fn evaluate_job<'a>(
         &self,
-        ctx: &InsertionContext,
+        ctx: &'a InsertionContext,
         job: &Job,
         routes: &[RouteContext],
         result_selector: &(dyn ResultSelector + Send + Sync),
-    ) -> InsertionResult {
-        routes.iter().fold(InsertionResult::make_failure(), |acc, route_ctx| {
-            evaluate_job_insertion_in_route(ctx, route_ctx, job, self.insertion_position, acc, result_selector)
-        })
+    ) -> (InsertionResult, InsertionCache<'a>) {
+        let mut cache = InsertionCache::new(ctx);
+        (
+            routes.iter().fold(InsertionResult::make_failure(), |acc, route_ctx| {
+                evaluate_job_insertion_in_route(
+                    ctx,
+                    route_ctx,
+                    job,
+                    self.insertion_position,
+                    acc,
+                    &mut cache,
+                    result_selector,
+                )
+            }),
+            cache,
+        )
     }
 
-    fn evaluate_route(
+    fn evaluate_route<'a>(
         &self,
-        ctx: &InsertionContext,
+        ctx: &'a InsertionContext,
         route: &RouteContext,
         jobs: &[Job],
         result_selector: &(dyn ResultSelector + Send + Sync),
-    ) -> InsertionResult {
-        jobs.iter().fold(InsertionResult::make_failure(), |acc, job| {
-            evaluate_job_insertion_in_route(ctx, route, job, self.insertion_position, acc, result_selector)
-        })
+    ) -> (InsertionResult, InsertionCache<'a>) {
+        let mut cache = InsertionCache::new(ctx);
+        (
+            jobs.iter().fold(InsertionResult::make_failure(), |acc, job| {
+                evaluate_job_insertion_in_route(
+                    ctx,
+                    route,
+                    job,
+                    self.insertion_position,
+                    acc,
+                    &mut cache,
+                    result_selector,
+                )
+            }),
+            cache,
+        )
     }
 
-    fn evaluate_all(
+    fn evaluate_all<'a>(
         &self,
-        ctx: &InsertionContext,
+        ctx: &'a InsertionContext,
         jobs: &[Job],
         routes: &[RouteContext],
         result_selector: &(dyn ResultSelector + Send + Sync),
-    ) -> InsertionResult {
+    ) -> (InsertionResult, InsertionCache<'a>) {
         if Self::is_fold_jobs(ctx) {
             map_reduce(
                 jobs,
                 |job| self.evaluate_job(ctx, job, routes, result_selector),
-                InsertionResult::make_failure,
-                |a, b| result_selector.select_insertion(ctx, a, b),
+                || (InsertionResult::make_failure(), InsertionCache::new(ctx)),
+                |(a_result, a_cache), (b_result, b_cache)| {
+                    (result_selector.select_insertion(ctx, a_result, b_result), InsertionCache::merge(a_cache, b_cache))
+                },
             )
         } else {
             map_reduce(
                 routes,
                 |route| self.evaluate_route(ctx, route, jobs, result_selector),
-                InsertionResult::make_failure,
-                |a, b| result_selector.select_insertion(ctx, a, b),
+                || (InsertionResult::make_failure(), InsertionCache::new(ctx)),
+                |(a_result, a_cache), (b_result, b_cache)| {
+                    (result_selector.select_insertion(ctx, a_result, b_result), InsertionCache::merge(a_cache, b_cache))
+                },
             )
         }
     }

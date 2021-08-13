@@ -89,5 +89,6 @@ pub fn create_solution_context_for_fleet(fleet: &Fleet) -> SolutionContext {
         state: Default::default(),
         routes: Default::default(),
         registry: RegistryContext::new(Registry::new(&fleet, Arc::new(DefaultRandom::default()))),
+        cache: Default::default(),
     }
 }

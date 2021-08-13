@@ -29,9 +29,10 @@ fn evaluate_job_insertion(
     let result_selector = BestResultSelector::default();
     let route_selector = AllRouteSelector::default();
     let routes = route_selector.select(ctx, vec![].as_slice()).collect::<Vec<_>>();
+    let mut cache = InsertionCache::new(ctx);
 
     routes.iter().fold(InsertionResult::make_failure(), |acc, route_ctx| {
-        evaluate_job_insertion_in_route(&ctx, &route_ctx, job, insertion_position, acc, &result_selector)
+        evaluate_job_insertion_in_route(&ctx, &route_ctx, job, insertion_position, acc, &mut cache, &result_selector)
     })
 }
 

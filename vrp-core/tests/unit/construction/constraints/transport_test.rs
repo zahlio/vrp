@@ -114,7 +114,7 @@ mod timing {
         let prev = route_ctx.route.tour.get(prev_index).unwrap();
         let target = test_activity_with_location(location);
         let next = route_ctx.route.tour.get(next_index);
-        let activity_ctx = ActivityContext { index: 0, prev, target: &target, next };
+        let activity_ctx = ActivityContext { position: &ActivityPosition::Single(0), prev, target: &target, next };
 
         let result = pipeline.evaluate_hard_activity(&route_ctx, &activity_ctx);
 
@@ -166,7 +166,7 @@ mod timing {
             job: None,
         });
         let activity_ctx = ActivityContext {
-            index: 0,
+            position: &ActivityPosition::Single(0),
             prev: route_ctx.route.tour.get(0).unwrap(),
             target: &target,
             next: route_ctx.route.tour.get(1),
@@ -202,7 +202,7 @@ mod timing {
             job: None,
         });
         let activity_ctx = ActivityContext {
-            index: 0,
+            position: &ActivityPosition::Single(0),
             prev: route_ctx.route.tour.get(1).unwrap(),
             target: &target,
             next: route_ctx.route.tour.get(2),
@@ -336,7 +336,7 @@ mod timing {
 mod traveling {
     use super::super::stop;
     use crate::construction::constraints::*;
-    use crate::construction::heuristics::{ActivityContext, RouteContext, RouteState};
+    use crate::construction::heuristics::{ActivityContext, ActivityPosition, RouteContext, RouteState};
     use crate::helpers::construction::constraints::create_constraint_pipeline_with_module;
     use crate::helpers::models::problem::*;
     use crate::helpers::models::solution::*;
@@ -403,7 +403,7 @@ mod traveling {
         let result = pipeline.evaluate_hard_activity(
             &route_ctx,
             &ActivityContext {
-                index: 0,
+                position: &ActivityPosition::Single(0),
                 prev: &test_activity_with_location(50),
                 target: &test_activity_with_location(location),
                 next: Some(&test_activity_with_location(50)),
@@ -420,7 +420,7 @@ mod traveling {
         let result = pipeline.evaluate_hard_activity(
             &route_ctx,
             &ActivityContext {
-                index: 0,
+                position: &ActivityPosition::Single(0),
                 prev: &test_activity_with_location(50),
                 target: &test_activity_with_location_and_tw(75, TimeWindow::new(100., 100.)),
                 next: Some(&test_activity_with_location(50)),

@@ -1,4 +1,5 @@
 use super::*;
+use crate::construction::heuristics::ActivityPosition;
 use crate::helpers::construction::constraints::create_constraint_pipeline_with_module;
 use crate::helpers::models::domain::create_empty_solution_context;
 use crate::helpers::models::problem::*;
@@ -50,7 +51,7 @@ fn can_check_single_job_impl(
     let solution_ctx = create_empty_solution_context();
     let route_ctx = create_route_context_with_activities(&create_fleet(areas), vehicle_id, vec![]);
     let activity_ctx = ActivityContext {
-        index: 0,
+        position: &ActivityPosition::Single(0),
         prev: &test_activity_without_job(),
         target: &test_activity_with_location(activity_location),
         next: None,
@@ -167,7 +168,7 @@ fn can_estimate_activity_with_penalty_impl(priority: Option<usize>, route_cost: 
     let cost = area_constraint.estimate_activity(
         &route_ctx,
         &ActivityContext {
-            index: 0,
+            position: &ActivityPosition::Single(0),
             prev: &test_activity_with_location(1),
             target: &test_activity_with_location(0),
             next: None,

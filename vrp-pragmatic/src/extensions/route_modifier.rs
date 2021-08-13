@@ -1,6 +1,7 @@
 use crate::format::{JobIndex, UNASSIGNABLE_ROUTE_KEY};
 use std::sync::Arc;
 use vrp_core::construction::constraints::ConstraintPipeline;
+use vrp_core::construction::heuristics::InsertionCache;
 use vrp_core::construction::heuristics::*;
 use vrp_core::models::common::{IdDimension, ValueDimension};
 use vrp_core::utils::compare_floats;
@@ -20,6 +21,7 @@ pub fn get_route_modifier(constraint: Arc<ConstraintPipeline>, job_index: JobInd
             .take_while(|job| job.is_some())
             .collect::<Vec<_>>();
 
+        let mut cache = InsertionCache::empty(constraint.as_ref());
         let result_selector = BestResultSelector::default();
 
         let result = candidates
@@ -28,11 +30,11 @@ pub fn get_route_modifier(constraint: Arc<ConstraintPipeline>, job_index: JobInd
                 job.map(|job| {
                     evaluate_job_constraint_in_route(
                         job,
-                        &constraint,
                         &route_ctx,
                         InsertionPosition::Last,
                         0.,
                         None,
+                        &mut cache,
                         &result_selector,
                     )
                 })

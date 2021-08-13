@@ -94,6 +94,8 @@ fn find_best_insertion_pair(
         }
 
         let new_insertion_ctx = get_new_insertion_ctx(insertion_ctx, &seed_job, seed_route_idx).unwrap();
+        let constraint = new_insertion_ctx.problem.constraint.clone();
+
         let seed_route = new_insertion_ctx.solution.routes.get(seed_route_idx).unwrap();
         let result_selector = NoiseResultSelector::new(noise.clone());
 
@@ -114,17 +116,23 @@ fn find_best_insertion_pair(
                         .collect::<Vec<_>>()
                         .as_slice(),
                     |(_, test_job)| {
+                        let mut cache = InsertionCache::empty(&constraint);
                         // try to insert test job into seed tour
                         let seed_success =
-                            test_job_insertion(&new_insertion_ctx, seed_route, test_job, &result_selector)?;
+                            test_job_insertion(&new_insertion_ctx, seed_route, test_job, &mut cache, &result_selector)?;
 
                         // try to insert seed job into test route
                         let mut test_route = test_route.deep_copy();
                         test_route.route_mut().tour.remove(test_job);
                         new_insertion_ctx.problem.constraint.accept_route_state(&mut test_route);
 
-                        let test_success =
-                            test_job_insertion(&new_insertion_ctx, &test_route, &seed_job, &result_selector)?;
+                        let test_success = test_job_insertion(
+                            &new_insertion_ctx,
+                            &test_route,
+                            &seed_job,
+                            &mut cache,
+                            &result_selector,
+                        )?;
 
                         Some((seed_success, test_success))
                     },
@@ -152,6 +160,7 @@ fn test_job_insertion(
     insertion_ctx: &InsertionContext,
     route_ctx: &RouteContext,
     job: &Job,
+    cache: &mut InsertionCache,
     result_selector: &(dyn ResultSelector + Send + Sync),
 ) -> Option<InsertionSuccess> {
     let insertion = evaluate_job_insertion_in_route(
@@ -160,6 +169,7 @@ fn test_job_insertion(
         job,
         InsertionPosition::Any,
         InsertionResult::make_failure(),
+        cache,
         result_selector,
     );
 

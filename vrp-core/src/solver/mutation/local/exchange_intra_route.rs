@@ -33,6 +33,8 @@ impl LocalOperator for ExchangeIntraRouteRandom {
         if let Some(route_idx) = get_random_route_idx(insertion_ctx) {
             let mut new_insertion_ctx = insertion_ctx.deep_copy();
             let mut route_ctx = new_insertion_ctx.solution.routes.get_mut(route_idx).unwrap();
+            let constraint = new_insertion_ctx.problem.constraint.clone();
+            let mut cache = InsertionCache::empty(&constraint);
 
             if let Some(job) = get_shuffled_jobs(insertion_ctx, route_ctx).into_iter().next() {
                 assert!(route_ctx.route_mut().tour.remove(&job));
@@ -44,6 +46,7 @@ impl LocalOperator for ExchangeIntraRouteRandom {
                     &job,
                     InsertionPosition::Any,
                     InsertionResult::make_failure(),
+                    &mut cache,
                     &NoiseResultSelector::new(Noise::new(
                         self.probability,
                         self.noise_range,
