@@ -127,7 +127,6 @@ impl InsertionResult {
 }
 
 pub(crate) fn prepare_insertion_ctx(ctx: &mut InsertionContext) {
-    InsertionCache::ensure_cache(ctx);
     ctx.solution.required.extend(ctx.solution.unassigned.iter().map(|(job, _)| job.clone()));
     ctx.problem.constraint.accept_solution_state(&mut ctx.solution);
 }

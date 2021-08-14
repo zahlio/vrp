@@ -75,10 +75,6 @@ impl<'a> InsertionCache<'a> {
         }
     }
 
-    pub(crate) fn ensure_cache(insertion_ctx: &mut InsertionContext) {
-        insertion_ctx.solution.state.entry(INSERTION_CACHE_KEY).or_insert_with(|| Arc::new(SolutionCache::default()));
-    }
-
     pub(crate) fn synchronize(insertion_ctx: &mut InsertionContext, job: JobCache) {
         let solution = &mut insertion_ctx.solution.cache;
 
@@ -127,7 +123,7 @@ impl<'a> InsertionCache<'a> {
             result.clone()
         } else {
             let result = self.constraint.evaluate_hard_route(solution_ctx, route_ctx, job);
-            self.job.hard_route.get_or_insert_with(|| HashMap::with_capacity(16)).insert(key, result.clone());
+            self.job.hard_route.get_or_insert_with(|| HashMap::default()).insert(key, result.clone());
             result
         }
     }
@@ -143,7 +139,7 @@ impl<'a> InsertionCache<'a> {
             *result
         } else {
             let result = self.constraint.evaluate_soft_route(solution_ctx, route_ctx, job);
-            self.job.soft_route.get_or_insert_with(|| HashMap::with_capacity(16)).insert(key, result);
+            self.job.soft_route.get_or_insert_with(|| HashMap::default()).insert(key, result);
             result
         }
     }
@@ -167,7 +163,7 @@ impl<'a> InsertionCache<'a> {
             Some((Some(result), _)) => result.clone(),
             Some((None, key)) => {
                 let result = self.constraint.evaluate_hard_activity(route_ctx, activity_ctx);
-                self.job.hard_activity.get_or_insert_with(|| HashMap::with_capacity(16)).insert(key, result.clone());
+                self.job.hard_activity.get_or_insert_with(|| HashMap::default()).insert(key, result.clone());
                 result
             }
             _ => self.constraint.evaluate_hard_activity(route_ctx, activity_ctx),
@@ -189,7 +185,7 @@ impl<'a> InsertionCache<'a> {
             Some((Some(result), _)) => result.clone(),
             Some((None, key)) => {
                 let result = self.constraint.evaluate_soft_activity(route_ctx, activity_ctx);
-                self.job.soft_activity.get_or_insert_with(|| HashMap::with_capacity(16)).insert(key, result);
+                self.job.soft_activity.get_or_insert_with(|| HashMap::default()).insert(key, result);
                 result
             }
             _ => self.constraint.evaluate_soft_activity(route_ctx, activity_ctx),
@@ -214,16 +210,6 @@ impl<'a> InsertionCache<'a> {
             ActivityCacheKey(route_ctx.route.actor.clone(), job, single.clone(), activity_ctx.position.clone())
         })
     }
-    /*
-    fn retrieve_solution_cache(insertion_ctx: &mut InsertionContext) -> &mut SolutionCache {
-        insertion_ctx
-            .solution
-            .state
-            .get(&INSERTION_CACHE_KEY)
-            .and_then(|s| s.downcast_ref::<SolutionCache>())
-            .map(|s| unsafe { as_mut(s) })
-            .expect("expect cache")
-    }*/
 }
 
 /// Represents a named tuple: actor, job.
