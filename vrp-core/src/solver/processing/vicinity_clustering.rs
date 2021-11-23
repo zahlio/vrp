@@ -4,10 +4,10 @@ mod vicinity_clustering_test;
 
 use super::*;
 use crate::construction::clustering::vicinity::*;
-use crate::models::common::{Schedule, ValueDimension};
+use crate::models::common::{Extras, Schedule, ValueDimension};
 use crate::models::problem::Jobs;
 use crate::models::solution::{Activity, Place};
-use crate::models::{Extras, Problem};
+use crate::models::Problem;
 use hashbrown::{HashMap, HashSet};
 use std::sync::Arc;
 

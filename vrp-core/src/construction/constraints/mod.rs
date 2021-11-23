@@ -55,6 +55,8 @@
 //! All constraint modules are organized inside one `ConstraintPipeline` which specifies the order
 //! of their execution.
 
+// region state keys
+
 /// A key which tracks latest arrival.
 pub const LATEST_ARRIVAL_KEY: i32 = 1;
 /// A key which tracks waiting time.
@@ -80,6 +82,33 @@ pub const MAX_LOAD_KEY: i32 = 15;
 pub const TOTAL_VALUE_KEY: i32 = 16;
 /// A key which tracks tour order statistics.
 pub const TOUR_ORDER_KEY: i32 = 17;
+
+// endregion
+
+// region dimension keys
+
+/// A key used to track job id. It is defined mostly for convenience.
+pub const JOB_ID_DIMEN_KEY: i32 = 1;
+/// A key used to track vehicle id. It is defined mostly for convenience.
+pub const VEHICLE_ID_DIMEN_KEY: i32 = 2;
+/// A key used to track a weak reference to multi job.
+pub const MULTI_REF_DIMEN_KEY: i32 = 3;
+/// A key to track vehicle capacity.
+pub const CAPACITY_DIMEN_KEY: i32 = 4;
+/// A key to track job demand.
+pub const DEMAND_DIMEN_KEY: i32 = 5;
+/// A key to track areas.
+pub const AREA_DIMEN_KEY: i32 = 6;
+/// A key to track order.
+pub const ORDER_DIMEN_KEY: i32 = 7;
+/// A key to track value.
+pub const VALUE_DIMEN_KEY: i32 = 8;
+/// A key to track clustered jobs.
+pub const CLUSTER_JOBS_DIMEN_KEY: i32 = 9;
+
+// TODO use lazy static to fill hashmap and do the check on high level?
+
+// endregion
 
 mod pipeline;
 pub use self::pipeline::*;

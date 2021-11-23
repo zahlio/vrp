@@ -2,22 +2,22 @@
 #[path = "../../../tests/unit/format/solution/initial_reader_test.rs"]
 mod initial_reader_test;
 
+use crate::constraints::{VEHICLE_SHIFT_INDEX_DIMEN_KEY, VEHICLE_TYPE_ID_DIMEN_KEY};
 use crate::format::solution::activity_matcher::{try_match_job, JobInfo};
-use crate::format::solution::{deserialize_solution, map_reason_code};
-use crate::format::{get_coord_index, get_job_index, CoordIndex, JobIndex};
-use crate::parse_time;
-use std::io::{BufReader, Read};
-use std::sync::Arc;
-use vrp_core::models::common::*;
-use vrp_core::models::problem::{Actor, Job, Single};
-use vrp_core::models::solution::{Activity, Place, Registry, Route};
-use vrp_core::models::{Problem, Solution};
-
 use crate::format::solution::Activity as FormatActivity;
 use crate::format::solution::Stop as FormatStop;
 use crate::format::solution::Tour as FormatTour;
+use crate::format::solution::{deserialize_solution, map_reason_code};
+use crate::format::{get_coord_index, get_job_index, CoordIndex, JobIndex};
+use crate::parse_time;
 use hashbrown::{HashMap, HashSet};
+use std::io::{BufReader, Read};
+use std::sync::Arc;
+use vrp_core::models::common::*;
+use vrp_core::models::problem::{Actor, Job, Single, VehicleIdDimension};
 use vrp_core::models::solution::Tour as CoreTour;
+use vrp_core::models::solution::{Activity, Place, Registry, Route};
+use vrp_core::models::{Problem, Solution};
 use vrp_core::utils::Random;
 
 type ActorKey = (String, String, usize);
@@ -109,9 +109,10 @@ fn try_insert_activity(
 fn get_actor_key(actor: &Actor) -> ActorKey {
     let dimens = &actor.vehicle.dimens;
 
-    let vehicle_id = dimens.get_id().cloned().expect("cannot get vehicle id!");
-    let type_id = dimens.get_value::<String>("type_id").cloned().expect("cannot get type id!");
-    let shift_index = dimens.get_value::<usize>("shift_index").cloned().expect("cannot get shift index!");
+    let vehicle_id = dimens.get_vehicle_id().cloned().expect("cannot get vehicle id!");
+    let type_id = dimens.get_value::<String>(VEHICLE_TYPE_ID_DIMEN_KEY).cloned().expect("cannot get type id!");
+    let shift_index =
+        dimens.get_value::<usize>(VEHICLE_SHIFT_INDEX_DIMEN_KEY).cloned().expect("cannot get shift index!");
 
     (vehicle_id, type_id, shift_index)
 }

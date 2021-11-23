@@ -14,7 +14,7 @@ pub struct DispatchModule {
     code: i32,
     conditional: ConditionalJobModule,
     constraints: Vec<ConstraintVariant>,
-    keys: Vec<i32>,
+    empty_keys: Vec<i32>,
 }
 
 impl DispatchModule {
@@ -26,7 +26,7 @@ impl DispatchModule {
                 ConstraintVariant::HardRoute(Arc::new(DispatchHardRouteConstraint { code })),
                 ConstraintVariant::HardActivity(Arc::new(DispatchHardActivityConstraint { code })),
             ],
-            keys: vec![],
+            empty_keys: vec![],
         }
     }
 }
@@ -74,7 +74,11 @@ impl ConstraintModule for DispatchModule {
     }
 
     fn state_keys(&self) -> Iter<i32> {
-        self.keys.iter()
+        self.empty_keys.iter()
+    }
+
+    fn dimen_keys(&self) -> Iter<i32> {
+        self.empty_keys.iter()
     }
 
     fn get_constraints(&self) -> Iter<ConstraintVariant> {
@@ -138,11 +142,11 @@ fn create_job_transition() -> Box<dyn JobContextTransition + Send + Sync> {
 }
 
 fn is_dispatch_job(job: &Job) -> bool {
-    job.as_single().and_then(|single| single.dimens.get_value::<String>("type")).map_or(false, |t| t == "dispatch")
+    job.as_single().and_then(|single| single.dimens.get_job_type()).map_or(false, |t| t == "dispatch")
 }
 
 fn is_dispatch_single(single: &Arc<Single>) -> bool {
-    single.dimens.get_value::<String>("type").map_or(false, |t| t == "dispatch")
+    single.dimens.get_job_type().map_or(false, |t| t == "dispatch")
 }
 
 fn is_dispatch_activity(activity: &Option<&Activity>) -> bool {

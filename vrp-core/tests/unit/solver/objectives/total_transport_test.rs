@@ -3,10 +3,10 @@ use crate::helpers::construction::constraints::create_constraint_pipeline_with_t
 use crate::helpers::models::domain::{create_empty_solution_context, test_random};
 use crate::helpers::models::problem::*;
 use crate::helpers::models::solution::*;
-use crate::models::common::Schedule;
+use crate::models::common::{Extras, Schedule};
 use crate::models::problem::{Job, Jobs, ObjectiveCost, SimpleActivityCost};
 use crate::models::solution::Registry;
-use crate::models::{Extras, Problem};
+use crate::models::Problem;
 use crate::solver::objectives::TotalCost;
 use crate::utils::Environment;
 use hashbrown::HashMap;

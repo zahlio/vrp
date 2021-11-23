@@ -35,9 +35,10 @@ impl GenericValue {
             constraints: vec![ConstraintVariant::SoftRoute(Arc::new(objective.clone()))],
             job_merge_func,
             route_value_func,
-            state_key,
-            keys: vec![state_key],
             solution_value_func,
+            state_key,
+            state_keys: vec![state_key],
+            dimen_keys: vec![],
         };
 
         (Arc::new(constraint), Arc::new(objective))
@@ -50,7 +51,8 @@ struct GenericValueConstraint {
     route_value_func: Arc<dyn Fn(&RouteContext) -> f64 + Send + Sync>,
     solution_value_func: Arc<dyn Fn(&SolutionContext) -> f64 + Send + Sync>,
     state_key: i32,
-    keys: Vec<i32>,
+    state_keys: Vec<i32>,
+    dimen_keys: Vec<i32>,
 }
 
 impl ConstraintModule for GenericValueConstraint {
@@ -75,7 +77,11 @@ impl ConstraintModule for GenericValueConstraint {
     }
 
     fn state_keys(&self) -> Iter<i32> {
-        self.keys.iter()
+        self.state_keys.iter()
+    }
+
+    fn dimen_keys(&self) -> Iter<i32> {
+        self.dimen_keys.iter()
     }
 
     fn get_constraints(&self) -> Iter<ConstraintVariant> {

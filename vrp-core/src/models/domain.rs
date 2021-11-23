@@ -1,12 +1,8 @@
 use crate::construction::constraints::ConstraintPipeline;
+use crate::models::common::Extras;
 use crate::models::problem::*;
 use crate::models::solution::{Registry, Route};
-use hashbrown::HashMap;
-use std::any::Any;
 use std::sync::Arc;
-
-/// Specifies a type used to store any values regarding problem and solution.
-pub type Extras = HashMap<String, Arc<dyn Any + Send + Sync>>;
 
 /// Defines VRP problem.
 pub struct Problem {

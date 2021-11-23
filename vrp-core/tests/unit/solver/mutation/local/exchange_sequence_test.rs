@@ -4,7 +4,7 @@ use crate::helpers::models::domain::*;
 use crate::helpers::solver::*;
 use crate::helpers::utils::create_test_environment_with_random;
 use crate::helpers::utils::random::FakeRandom;
-use crate::models::common::IdDimension;
+use crate::models::problem::JobIdDimension;
 use crate::models::solution::Activity;
 use crate::models::Problem;
 use crate::utils::{as_mut, Environment};
@@ -23,7 +23,9 @@ impl HardActivityConstraint for LegConstraint {
     ) -> Option<ActivityConstraintViolation> {
         let retrieve_job_id = |activity: Option<&Activity>| {
             activity.as_ref().and_then(|next| {
-                next.retrieve_job().and_then(|job| job.dimens().get_id().cloned()).or_else(|| Some(self.ignore.clone()))
+                next.retrieve_job()
+                    .and_then(|job| job.dimens().get_job_id().cloned())
+                    .or_else(|| Some(self.ignore.clone()))
             })
         };
 

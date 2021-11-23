@@ -14,7 +14,7 @@ use std::sync::Arc;
 pub struct StrictLockingModule {
     code: i32,
     conditions: HashMap<Job, Arc<dyn Fn(&Actor) -> bool + Sync + Send>>,
-    state_keys: Vec<i32>,
+    empty_keys: Vec<i32>,
     constraints: Vec<ConstraintVariant>,
 }
 
@@ -34,7 +34,11 @@ impl ConstraintModule for StrictLockingModule {
     }
 
     fn state_keys(&self) -> Iter<i32> {
-        self.state_keys.iter()
+        self.empty_keys.iter()
+    }
+
+    fn dimen_keys(&self) -> Iter<i32> {
+        self.empty_keys.iter()
     }
 
     fn get_constraints(&self) -> Iter<ConstraintVariant> {
@@ -78,7 +82,7 @@ impl StrictLockingModule {
         Self {
             code,
             conditions: conditions.clone(),
-            state_keys: vec![],
+            empty_keys: vec![],
             constraints: vec![
                 ConstraintVariant::HardRoute(Arc::new(StrictLockingHardRouteConstraint { code, conditions })),
                 ConstraintVariant::HardActivity(Arc::new(StrictLockingHardActivityConstraint {

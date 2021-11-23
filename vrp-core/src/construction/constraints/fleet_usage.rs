@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 /// A module which controls fleet size usage.
 pub struct FleetUsageConstraintModule {
-    state_keys: Vec<i32>,
+    empty_keys: Vec<i32>,
     constraints: Vec<ConstraintVariant>,
 }
 
@@ -23,7 +23,11 @@ impl ConstraintModule for FleetUsageConstraintModule {
     }
 
     fn state_keys(&self) -> Iter<i32> {
-        self.state_keys.iter()
+        self.empty_keys.iter()
+    }
+
+    fn dimen_keys(&self) -> Iter<i32> {
+        self.empty_keys.iter()
     }
 
     fn get_constraints(&self) -> Iter<ConstraintVariant> {
@@ -45,7 +49,7 @@ impl FleetUsageConstraintModule {
     /// Creates `FleetUsageConstraintModule` with custom extra cost.
     pub fn new_with_cost(extra_cost: Cost) -> Self {
         Self {
-            state_keys: vec![],
+            empty_keys: vec![],
             constraints: vec![ConstraintVariant::SoftRoute(Arc::new(FleetCostSoftRouteConstraint { extra_cost }))],
         }
     }

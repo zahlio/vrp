@@ -4,7 +4,7 @@ use std::sync::Arc;
 use vrp_core::construction::constraints::*;
 use vrp_core::models::common::*;
 use vrp_core::models::problem::*;
-use vrp_core::models::{Extras, Problem};
+use vrp_core::models::Problem;
 
 pub(crate) trait TextReader {
     fn read_problem(&mut self, is_rounded: bool) -> Result<Problem, String> {
@@ -47,12 +47,12 @@ pub(crate) fn create_fleet_with_distance_costs(
                 per_waiting_time: 0.0,
                 per_service_time: 0.0,
             },
-            dimens: create_dimens_with_id("driver", &0.to_string()),
+            dimens: create_vehicle_dimens_with_id("driver", &0.to_string()),
             details: Default::default(),
         })],
         (0..number)
             .map(|i| {
-                let mut dimens = create_dimens_with_id("v", &i.to_string());
+                let mut dimens = create_vehicle_dimens_with_id("v", &i.to_string());
                 dimens.set_capacity(SingleDimLoad::new(capacity as i32));
                 Arc::new(Vehicle {
                     profile: Profile::default(),
@@ -81,9 +81,15 @@ pub(crate) fn create_fleet_with_distance_costs(
     )
 }
 
-pub(crate) fn create_dimens_with_id(prefix: &str, id: &str) -> Dimensions {
+pub(crate) fn create_job_dimens_with_id(prefix: &str, id: &str) -> Dimensions {
     let mut dimens = Dimensions::new();
-    dimens.set_id([prefix.to_string(), id.to_string()].concat().as_str());
+    dimens.set_job_id([prefix.to_string(), id.to_string()].concat().as_str());
+    dimens
+}
+
+pub(crate) fn create_vehicle_dimens_with_id(prefix: &str, id: &str) -> Dimensions {
+    let mut dimens = Dimensions::new();
+    dimens.set_vehicle_id([prefix.to_string(), id.to_string()].concat().as_str());
     dimens
 }
 

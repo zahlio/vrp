@@ -65,7 +65,7 @@ fn can_merge_value() {
         Arc::new(|job, value| {
             let single = job.to_single();
             let mut dimens = single.dimens.clone();
-            dimens.set_value("value", value);
+            dimens.set_value(VALUE_DIMEN_KEY, value);
 
             Job::Single(Arc::new(Single { places: single.places.clone(), dimens }))
         }),
@@ -75,5 +75,5 @@ fn can_merge_value() {
 
     let merged = constraint.merge(source, candidate).unwrap();
 
-    assert_eq!(merged.dimens().get_value::<f64>("value").cloned(), Some(12.))
+    assert_eq!(merged.dimens().get_value::<f64>(VALUE_DIMEN_KEY).cloned(), Some(12.))
 }

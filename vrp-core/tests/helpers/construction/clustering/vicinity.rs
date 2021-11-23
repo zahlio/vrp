@@ -2,22 +2,22 @@ use crate::construction::clustering::vicinity::*;
 use crate::construction::constraints::*;
 use crate::construction::heuristics::*;
 use crate::helpers::models::problem::{get_job_id, SingleBuilder};
-use crate::models::common::{Duration, IdDimension, Location, Profile, ValueDimension};
-use crate::models::problem::Job;
+use crate::models::common::{Duration, Location, Profile, ValueDimension};
+use crate::models::problem::{Job, JobIdDimension};
 use crate::utils::compare_floats;
 use hashbrown::HashSet;
 use std::cmp::Ordering;
 use std::slice::Iter;
 use std::sync::Arc;
 
-pub const MERGED_KEY: &str = "merged";
+pub const MERGED_DIMEN_KEY: i32 = 10000;
 
 pub type JobPlaces = Vec<(Option<Location>, Duration, Vec<(f64, f64)>)>;
 
 struct VicinityTestModule {
     disallow_merge_list: HashSet<String>,
     constraints: Vec<ConstraintVariant>,
-    keys: Vec<i32>,
+    empty_keys: Vec<i32>,
 }
 
 impl VicinityTestModule {
@@ -25,7 +25,7 @@ impl VicinityTestModule {
         let constraints = vec![ConstraintVariant::HardRoute(Arc::new(VicinityHardRouteConstraint {
             disallow_merge_list: disallow_merge_list.clone(),
         }))];
-        Self { disallow_merge_list, constraints, keys: Vec::default() }
+        Self { disallow_merge_list, constraints, empty_keys: Vec::default() }
     }
 }
 
@@ -43,7 +43,7 @@ impl ConstraintModule for VicinityTestModule {
     }
 
     fn merge(&self, source: Job, candidate: Job) -> Result<Job, i32> {
-        if self.disallow_merge_list.contains(candidate.dimens().get_id().unwrap()) {
+        if self.disallow_merge_list.contains(candidate.dimens().get_job_id().unwrap()) {
             Err(1)
         } else {
             let source = source.to_single();
@@ -64,16 +64,20 @@ impl ConstraintModule for VicinityTestModule {
             );
 
             let mut dimens = source.dimens.clone();
-            let mut merged = dimens.get_value::<Vec<Job>>(MERGED_KEY).cloned().unwrap_or_else(Vec::new);
+            let mut merged = dimens.get_value::<Vec<Job>>(MERGED_DIMEN_KEY).cloned().unwrap_or_else(Vec::new);
             merged.push(candidate);
-            dimens.set_value(MERGED_KEY, merged);
+            dimens.set_value(MERGED_DIMEN_KEY, merged);
 
             Ok(SingleBuilder::default().dimens(dimens).places(vec![place]).build_as_job_ref())
         }
     }
 
     fn state_keys(&self) -> Iter<i32> {
-        self.keys.iter()
+        self.empty_keys.iter()
+    }
+
+    fn dimen_keys(&self) -> Iter<i32> {
+        self.empty_keys.iter()
     }
 
     fn get_constraints(&self) -> Iter<ConstraintVariant> {
@@ -87,7 +91,7 @@ struct VicinityHardRouteConstraint {
 
 impl HardRouteConstraint for VicinityHardRouteConstraint {
     fn evaluate_job(&self, _: &SolutionContext, _: &RouteContext, job: &Job) -> Option<RouteConstraintViolation> {
-        if self.disallow_merge_list.contains(job.dimens().get_id().unwrap()) {
+        if self.disallow_merge_list.contains(job.dimens().get_job_id().unwrap()) {
             Some(RouteConstraintViolation { code: 1 })
         } else {
             None

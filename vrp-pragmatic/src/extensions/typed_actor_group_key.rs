@@ -1,3 +1,4 @@
+use crate::constraints::VEHICLE_TYPE_ID_DIMEN_KEY;
 use hashbrown::{HashMap, HashSet};
 use std::sync::Arc;
 use vrp_core::models::common::ValueDimension;
@@ -7,7 +8,7 @@ use vrp_core::models::problem::Actor;
 pub fn create_typed_actor_groups(actors: &[Arc<Actor>]) -> Box<dyn Fn(&Arc<Actor>) -> usize + Send + Sync> {
     let unique_type_keys: HashSet<_> = actors
         .iter()
-        .map(|a| (a.vehicle.dimens.get_value::<String>("type_id").cloned().unwrap(), a.detail.clone()))
+        .map(|a| (a.vehicle.dimens.get_value::<String>(VEHICLE_TYPE_ID_DIMEN_KEY).cloned().unwrap(), a.detail.clone()))
         .collect();
 
     let type_key_map: HashMap<_, _> = unique_type_keys.into_iter().zip(0_usize..).collect();
@@ -18,7 +19,10 @@ pub fn create_typed_actor_groups(actors: &[Arc<Actor>]) -> Box<dyn Fn(&Arc<Actor
             (
                 a.clone(),
                 *type_key_map
-                    .get(&(a.vehicle.dimens.get_value::<String>("type_id").cloned().unwrap(), a.detail.clone()))
+                    .get(&(
+                        a.vehicle.dimens.get_value::<String>(VEHICLE_TYPE_ID_DIMEN_KEY).cloned().unwrap(),
+                        a.detail.clone(),
+                    ))
                     .unwrap(),
             )
         })

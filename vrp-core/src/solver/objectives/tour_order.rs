@@ -57,8 +57,9 @@ impl TourOrder {
         let constraint = TourOrderConstraint {
             code: constraint_code.unwrap_or(-1),
             constraints,
-            keys: vec![TOUR_ORDER_KEY],
             order_func: order_func.clone(),
+            state_keys: vec![TOUR_ORDER_KEY],
+            dimen_keys: vec![],
         };
 
         let objective = OrderActivityObjective { order_func, state_key: TOUR_ORDER_KEY };
@@ -70,8 +71,9 @@ impl TourOrder {
 struct TourOrderConstraint {
     code: i32,
     constraints: Vec<ConstraintVariant>,
-    keys: Vec<i32>,
     order_func: Arc<dyn Fn(&Single) -> Option<f64> + Send + Sync>,
+    state_keys: Vec<i32>,
+    dimen_keys: Vec<i32>,
 }
 
 impl ConstraintModule for TourOrderConstraint {
@@ -80,7 +82,7 @@ impl ConstraintModule for TourOrderConstraint {
     fn accept_route_state(&self, _: &mut RouteContext) {}
 
     fn accept_solution_state(&self, ctx: &mut SolutionContext) {
-        if let Some(state_key) = self.keys.first() {
+        if let Some(state_key) = self.state_keys.first() {
             let violations = get_violations(ctx.routes.as_slice(), self.order_func.as_ref());
             ctx.state.insert(*state_key, Arc::new(violations));
         }
@@ -97,7 +99,11 @@ impl ConstraintModule for TourOrderConstraint {
     }
 
     fn state_keys(&self) -> Iter<i32> {
-        self.keys.iter()
+        self.state_keys.iter()
+    }
+
+    fn dimen_keys(&self) -> Iter<i32> {
+        self.dimen_keys.iter()
     }
 
     fn get_constraints(&self) -> Iter<ConstraintVariant> {

@@ -1,10 +1,10 @@
 use crate::core::construction::heuristics::*;
-use crate::core::models::common::IdDimension;
 use crate::core::models::problem::Job;
 use crate::helpers::*;
 use std::sync::Arc;
 use vrp_core::algorithms::nsga2::Objective;
 use vrp_core::construction::heuristics::InsertionContext;
+use vrp_core::models::problem::JobIdDimension;
 use vrp_core::models::Problem;
 use vrp_core::solver::mutation::{Recreate, RecreateWithCheapest};
 use vrp_core::solver::population::create_elitism_population;
@@ -21,7 +21,7 @@ impl Default for StableJobSelector {
 
 impl JobSelector for StableJobSelector {
     fn select<'a>(&'a self, ctx: &'a mut InsertionContext) -> Box<dyn Iterator<Item = Job> + 'a> {
-        ctx.solution.required.sort_by(|a, b| a.dimens().get_id().unwrap().cmp(b.dimens().get_id().unwrap()));
+        ctx.solution.required.sort_by(|a, b| a.dimens().get_job_id().unwrap().cmp(b.dimens().get_job_id().unwrap()));
         Box::new(ctx.solution.required.iter().cloned())
     }
 }

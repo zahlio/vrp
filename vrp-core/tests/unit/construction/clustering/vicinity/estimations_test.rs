@@ -1,6 +1,7 @@
 use super::*;
 use crate::helpers::construction::clustering::vicinity::*;
 use crate::helpers::models::problem::{get_job_id, SingleBuilder, TestTransportCost};
+use crate::models::problem::JobIdDimension;
 
 fn get_check_insertion_fn(disallow_insertion_list: Vec<&str>) -> Arc<CheckInsertionFn> {
     let disallow_insertion_list = disallow_insertion_list.into_iter().map(|id| id.to_string()).collect::<HashSet<_>>();
@@ -8,11 +9,11 @@ fn get_check_insertion_fn(disallow_insertion_list: Vec<&str>) -> Arc<CheckInsert
     Arc::new(move |job| {
         let job_to_check = job
             .dimens()
-            .get_value::<Vec<Job>>(MERGED_KEY)
+            .get_value::<Vec<Job>>(MERGED_DIMEN_KEY)
             .and_then(|merged| merged.last())
             .map(|last| last)
             .unwrap_or(job);
-        let id = job_to_check.dimens().get_id();
+        let id = job_to_check.dimens().get_job_id();
 
         if id.map_or(false, |id| disallow_insertion_list.contains(id)) {
             Err(-1)

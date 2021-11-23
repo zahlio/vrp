@@ -101,9 +101,11 @@ pub trait ConstraintModule {
     /// job. Otherwise returns violation error code.
     fn merge(&self, source: Job, candidate: Job) -> Result<Job, i32>;
 
-    /// Returns unique constraint state keys.
-    /// Used to avoid state key interference.
+    /// Returns unique constraint state keys. Used to avoid state key interference.
     fn state_keys(&self) -> Iter<i32>;
+
+    /// Returns unique constraint dimension keys. Used to avoid dimension key interference.
+    fn dimen_keys(&self) -> Iter<i32>;
 
     /// Returns list of constraints to be used.
     fn get_constraints(&self) -> Iter<ConstraintVariant>;

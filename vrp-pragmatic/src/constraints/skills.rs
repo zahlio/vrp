@@ -2,6 +2,7 @@
 #[path = "../../tests/unit/constraints/skills_test.rs"]
 mod skills_test;
 
+use crate::constraints::SKILLS_DIMEN_KEY;
 use hashbrown::HashSet;
 use std::slice::Iter;
 use std::sync::Arc;
@@ -24,7 +25,8 @@ pub struct JobSkills {
 pub struct SkillsModule {
     code: i32,
     constraints: Vec<ConstraintVariant>,
-    keys: Vec<i32>,
+    empty_keys: Vec<i32>,
+    dimen_keys: Vec<i32>,
 }
 
 impl SkillsModule {
@@ -32,7 +34,8 @@ impl SkillsModule {
         Self {
             code,
             constraints: vec![ConstraintVariant::HardRoute(Arc::new(SkillsHardRouteConstraint { code }))],
-            keys: vec![],
+            empty_keys: vec![],
+            dimen_keys: vec![SKILLS_DIMEN_KEY],
         }
     }
 }
@@ -75,7 +78,11 @@ impl ConstraintModule for SkillsModule {
     }
 
     fn state_keys(&self) -> Iter<i32> {
-        self.keys.iter()
+        self.empty_keys.iter()
+    }
+
+    fn dimen_keys(&self) -> Iter<i32> {
+        self.dimen_keys.iter()
     }
 
     fn get_constraints(&self) -> Iter<ConstraintVariant> {
@@ -90,7 +97,7 @@ struct SkillsHardRouteConstraint {
 impl HardRouteConstraint for SkillsHardRouteConstraint {
     fn evaluate_job(&self, _: &SolutionContext, ctx: &RouteContext, job: &Job) -> Option<RouteConstraintViolation> {
         if let Some(job_skills) = get_skills(job) {
-            let vehicle_skills = ctx.route.actor.vehicle.dimens.get_value::<HashSet<String>>("skills");
+            let vehicle_skills = ctx.route.actor.vehicle.dimens.get_value::<HashSet<String>>(SKILLS_DIMEN_KEY);
             let is_ok = check_all_of(job_skills, &vehicle_skills)
                 && check_one_of(job_skills, &vehicle_skills)
                 && check_none_of(job_skills, &vehicle_skills);
@@ -129,5 +136,5 @@ fn check_none_of(job_skills: &JobSkills, vehicle_skills: &Option<&HashSet<String
 }
 
 fn get_skills(job: &Job) -> Option<&JobSkills> {
-    job.dimens().get_value::<JobSkills>("skills")
+    job.dimens().get_value::<JobSkills>(SKILLS_DIMEN_KEY)
 }

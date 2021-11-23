@@ -9,7 +9,7 @@ use std::io::{BufReader, Read};
 use std::sync::Arc;
 use vrp_core::models::common::*;
 use vrp_core::models::problem::*;
-use vrp_core::models::{Extras, Problem};
+use vrp_core::models::Problem;
 
 /// A trait to read lilim problem.
 pub trait LilimProblem {
@@ -113,7 +113,7 @@ impl<R: Read> LilimReader<R> {
 
             jobs.push(Job::Multi(Multi::bind(Multi::new(
                 vec![self.create_single_job(pickup), self.create_single_job(delivery)],
-                create_dimens_with_id("mlt", &index.to_string()),
+                create_job_dimens_with_id("mlt", &index.to_string()),
             ))));
         });
 
@@ -121,7 +121,7 @@ impl<R: Read> LilimReader<R> {
     }
 
     fn create_single_job(&mut self, customer: &JobLine) -> Arc<Single> {
-        let mut dimens = create_dimens_with_id("c", &customer.id.to_string());
+        let mut dimens = create_job_dimens_with_id("c", &customer.id.to_string());
         dimens.set_demand(if customer.demand > 0 {
             Demand::<SingleDimLoad> {
                 pickup: (SingleDimLoad::default(), SingleDimLoad::new(customer.demand as i32)),

@@ -1,10 +1,10 @@
 use super::*;
-use crate::models::common::IdDimension;
 use hashbrown::HashMap;
 
 /// Promotes given job ids to locked in given context.
 pub fn promote_to_locked(mut insertion_ctx: InsertionContext, job_ids: &[&str]) -> InsertionContext {
-    let ids = insertion_ctx.problem.jobs.all().filter(|job| job_ids.contains(&job.dimens().get_id().unwrap().as_str()));
+    let ids =
+        insertion_ctx.problem.jobs.all().filter(|job| job_ids.contains(&job.dimens().get_job_id().unwrap().as_str()));
     insertion_ctx.solution.locked.extend(ids);
 
     insertion_ctx
@@ -36,7 +36,7 @@ pub fn get_jobs_by_ids(insertion_ctx: &InsertionContext, job_ids: &[&str]) -> Ve
         .jobs
         .all()
         .filter_map(|job| {
-            let job_id = job.dimens().get_id().unwrap().clone();
+            let job_id = job.dimens().get_job_id().unwrap().clone();
             if job_ids.contains(&job_id.as_str()) {
                 Some((job_id, job))
             } else {

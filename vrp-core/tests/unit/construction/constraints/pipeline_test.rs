@@ -7,8 +7,9 @@ use std::slice::Iter;
 use std::sync::Arc;
 
 struct TestConstraintModule {
-    state_keys: Vec<i32>,
     constraints: Vec<ConstraintVariant>,
+    state_keys: Vec<i32>,
+    dimen_keys: Vec<i32>,
 }
 
 impl ConstraintModule for TestConstraintModule {
@@ -30,6 +31,10 @@ impl ConstraintModule for TestConstraintModule {
 
     fn state_keys(&self) -> Iter<i32> {
         self.state_keys.iter()
+    }
+
+    fn dimen_keys(&self) -> Iter<i32> {
+        self.dimen_keys.iter()
     }
 
     fn get_constraints(&self) -> Iter<ConstraintVariant> {
@@ -65,14 +70,16 @@ impl SoftActivityConstraint for TestSoftActivityConstraint {
 fn can_evaluate_hard_activity_constraints() {
     let mut pipeline = ConstraintPipeline::default();
     pipeline.add_module(Arc::new(TestConstraintModule {
-        state_keys: vec![1, 2],
         constraints: vec![ConstraintVariant::HardActivity(Arc::new(TestHardActivityConstraint { violation: None }))],
+        state_keys: vec![1, 2],
+        dimen_keys: vec![],
     }));
     pipeline.add_module(Arc::new(TestConstraintModule {
-        state_keys: vec![3, 4],
         constraints: vec![ConstraintVariant::HardActivity(Arc::new(TestHardActivityConstraint {
             violation: Some(ActivityConstraintViolation { code: 5, stopped: true }),
         }))],
+        state_keys: vec![3, 4],
+        dimen_keys: vec![],
     }));
 
     let result = pipeline.evaluate_hard_activity(
@@ -95,12 +102,14 @@ fn can_evaluate_hard_activity_constraints() {
 fn can_estimate_hard_activity_constraints() {
     let mut pipeline = ConstraintPipeline::default();
     pipeline.add_module(Arc::new(TestConstraintModule {
-        state_keys: vec![1, 2],
         constraints: vec![ConstraintVariant::SoftActivity(Arc::new(TestSoftActivityConstraint { cost: 5.0 }))],
+        state_keys: vec![1, 2],
+        dimen_keys: vec![],
     }));
     pipeline.add_module(Arc::new(TestConstraintModule {
-        state_keys: vec![3, 4],
         constraints: vec![ConstraintVariant::SoftActivity(Arc::new(TestSoftActivityConstraint { cost: 7.0 }))],
+        state_keys: vec![3, 4],
+        dimen_keys: vec![],
     }));
 
     let result = pipeline.evaluate_soft_activity(

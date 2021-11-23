@@ -31,9 +31,9 @@ use std::cmp::Ordering::Equal;
 use std::io::{BufReader, Read};
 use std::sync::Arc;
 use vrp_core::construction::constraints::*;
-use vrp_core::models::common::{MultiDimLoad, SingleDimLoad, TimeWindow, ValueDimension};
+use vrp_core::models::common::{Extras, MultiDimLoad, SingleDimLoad, TimeWindow, ValueDimension};
 use vrp_core::models::problem::{ActivityCost, Fleet, Jobs, TransportCost};
-use vrp_core::models::{Extras, Lock, Problem};
+use vrp_core::models::{Lock, Problem};
 use vrp_core::solver::processing::VicinityDimension;
 use vrp_core::utils::{compare_floats, DefaultRandom, Random};
 
@@ -336,7 +336,7 @@ fn add_capacity_module(
 
 fn add_area_module(constraint: &mut ConstraintPipeline, coord_index: Arc<CoordIndex>) {
     constraint.add_module(Arc::new(AreaModule::new(
-        Arc::new(|actor| actor.vehicle.dimens.get_value::<Vec<Area>>("areas")),
+        Arc::new(|actor| actor.vehicle.dimens.get_value::<Vec<Area>>(AREA_DIMEN_KEY)),
         Arc::new(move |location| {
             coord_index
                 .get_by_idx(location)
@@ -348,7 +348,7 @@ fn add_area_module(constraint: &mut ConstraintPipeline, coord_index: Arc<CoordIn
 
 fn add_tour_size_module(constraint: &mut ConstraintPipeline) {
     constraint.add_module(Arc::new(TourSizeModule::new(
-        Arc::new(|actor| actor.vehicle.dimens.get_value::<usize>("tour_size").cloned()),
+        Arc::new(|actor| actor.vehicle.dimens.get_value::<usize>(TOUR_SIZE_DIMEN_KEY).cloned()),
         TOUR_SIZE_CONSTRAINT_CODE,
     )));
 }

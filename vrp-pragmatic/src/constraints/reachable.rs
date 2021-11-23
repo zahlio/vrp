@@ -6,7 +6,7 @@ use vrp_core::models::problem::{Job, TransportCost};
 
 pub struct ReachableModule {
     constraints: Vec<ConstraintVariant>,
-    keys: Vec<i32>,
+    empty_keys: Vec<i32>,
 }
 
 impl ReachableModule {
@@ -16,7 +16,7 @@ impl ReachableModule {
                 transport,
                 code,
             }))],
-            keys: vec![],
+            empty_keys: vec![],
         }
     }
 }
@@ -34,7 +34,11 @@ impl ConstraintModule for ReachableModule {
     }
 
     fn state_keys(&self) -> Iter<i32> {
-        self.keys.iter()
+        self.empty_keys.iter()
+    }
+
+    fn dimen_keys(&self) -> Iter<i32> {
+        self.empty_keys.iter()
     }
 
     fn get_constraints(&self) -> Iter<ConstraintVariant> {

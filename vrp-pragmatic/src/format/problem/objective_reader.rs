@@ -2,6 +2,7 @@
 #[path = "../../../tests/unit/format/problem/objective_reader_test.rs"]
 mod objective_reader_test;
 
+use crate::constraints::JobTypeDimension;
 use crate::core::models::common::ValueDimension;
 use crate::core::models::problem::Job;
 use crate::format::problem::reader::{ApiProblem, ProblemProperties};
@@ -12,6 +13,7 @@ use crate::format::TOUR_ORDER_CONSTRAINT_CODE;
 use std::sync::Arc;
 use vrp_core::construction::clustering::vicinity::ClusterDimension;
 use vrp_core::construction::constraints::{ConstraintPipeline, FleetUsageConstraintModule};
+use vrp_core::construction::constraints::{ORDER_DIMEN_KEY, VALUE_DIMEN_KEY};
 use vrp_core::models::common::{MultiDimLoad, SingleDimLoad};
 use vrp_core::models::problem::{ObjectiveCost, Single, TargetConstraint, TargetObjective};
 use vrp_core::solver::objectives::TourOrder as CoreTourOrder;
@@ -138,11 +140,11 @@ fn get_value(
         Arc::new(move |solution| {
             solution.unassigned.iter().map(|(job, _)| get_unassigned_job_estimate(job, break_value, 0.)).sum()
         }),
-        Arc::new(|job| job.dimens().get_value::<f64>("value").cloned().unwrap_or(0.)),
+        Arc::new(|job| job.dimens().get_value::<f64>(VALUE_DIMEN_KEY).cloned().unwrap_or(0.)),
         Arc::new(|job, value| match job {
             Job::Single(single) => {
                 let mut dimens = single.dimens.clone();
-                dimens.set_value("value", value);
+                dimens.set_value(VALUE_DIMEN_KEY, value);
 
                 Job::Single(Arc::new(Single { places: single.places.clone(), dimens }))
             }
@@ -152,7 +154,8 @@ fn get_value(
 }
 
 fn get_order(is_constrained: bool) -> (TargetConstraint, TargetObjective) {
-    let order_func = Arc::new(|single: &Single| single.dimens.get_value::<i32>("order").map(|order| *order as f64));
+    let order_func =
+        Arc::new(|single: &Single| single.dimens.get_value::<i32>(ORDER_DIMEN_KEY).map(|order| *order as f64));
 
     if is_constrained {
         CoreTourOrder::new_constrained(order_func, TOUR_ORDER_CONSTRAINT_CODE)
@@ -206,12 +209,15 @@ fn get_unassigned_job_estimate(job: &Job, break_value: f64, default_value: f64) 
     if let Some(clusters) = job.dimens().get_cluster() {
         clusters.len() as f64 * default_value
     } else {
-        job.dimens().get_value::<String>("type").map_or(default_value, |job_type| {
-            if job_type == "break" {
-                break_value
-            } else {
-                default_value
-            }
-        })
+        job.dimens().get_job_type().map_or(
+            default_value,
+            |job_type| {
+                if job_type == "break" {
+                    break_value
+                } else {
+                    default_value
+                }
+            },
+        )
     }
 }

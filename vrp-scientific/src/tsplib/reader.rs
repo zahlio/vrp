@@ -3,14 +3,14 @@
 mod reader_test;
 
 use crate::common::*;
-use crate::core::models::common::{Demand, DemandDimension, SingleDimLoad, TimeSpan};
+use crate::core::models::common::*;
 use crate::utils::CoordIndex;
 use std::collections::HashMap;
 use std::io::{BufReader, Read};
 use std::sync::Arc;
 use vrp_core::models::common::TimeWindow;
 use vrp_core::models::problem::*;
-use vrp_core::models::{Extras, Problem};
+use vrp_core::models::Problem;
 
 /// A trait to read tsplib95 problem. Please note that it is very basic implementation of the format specification.
 pub trait TsplibProblem {
@@ -202,7 +202,7 @@ impl<R: Read> TsplibReader<R> {
     }
 
     fn create_job(&mut self, id: &str, location: (i32, i32), demand: i32) -> Job {
-        let mut dimens = create_dimens_with_id("", id);
+        let mut dimens = create_job_dimens_with_id("", id);
         dimens.set_demand(Demand::<SingleDimLoad> {
             pickup: (SingleDimLoad::default(), SingleDimLoad::default()),
             delivery: (SingleDimLoad::new(demand), SingleDimLoad::default()),

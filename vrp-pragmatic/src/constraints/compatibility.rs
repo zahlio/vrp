@@ -2,6 +2,7 @@
 #[path = "../../tests/unit/constraints/compatibility_test.rs"]
 mod compatibility_test;
 
+use crate::constraints::COMPATIBILITY_DIMEN_KEY;
 use std::slice::Iter;
 use std::sync::Arc;
 use vrp_core::construction::constraints::*;
@@ -14,7 +15,8 @@ pub struct CompatibilityModule {
     code: i32,
     constraints: Vec<ConstraintVariant>,
     state_key: i32,
-    keys: Vec<i32>,
+    state_keys: Vec<i32>,
+    dimen_keys: Vec<i32>,
 }
 
 impl CompatibilityModule {
@@ -27,7 +29,8 @@ impl CompatibilityModule {
                 state_key,
             }))],
             state_key,
-            keys: vec![state_key],
+            state_keys: vec![state_key],
+            dimen_keys: vec![COMPATIBILITY_DIMEN_KEY],
         }
     }
 }
@@ -63,7 +66,11 @@ impl ConstraintModule for CompatibilityModule {
     }
 
     fn state_keys(&self) -> Iter<i32> {
-        self.keys.iter()
+        self.state_keys.iter()
+    }
+
+    fn dimen_keys(&self) -> Iter<i32> {
+        self.dimen_keys.iter()
     }
 
     fn get_constraints(&self) -> Iter<ConstraintVariant> {
@@ -94,7 +101,7 @@ impl HardRouteConstraint for CompatibilityHardRouteConstraint {
 }
 
 fn get_job_compatibility(job: &Job) -> Option<&String> {
-    job.dimens().get_value::<String>("compat")
+    job.dimens().get_value::<String>(COMPATIBILITY_DIMEN_KEY)
 }
 
 fn get_route_compatibility(route_ctx: &RouteContext) -> Option<String> {

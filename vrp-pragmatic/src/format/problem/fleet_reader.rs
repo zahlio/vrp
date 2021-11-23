@@ -2,6 +2,7 @@
 #[path = "../../../tests/unit/format/problem/fleet_reader_test.rs"]
 mod fleet_reader_test;
 
+use crate::constraints::*;
 use crate::extensions::create_typed_actor_groups;
 use crate::format::coord_index::CoordIndex;
 use crate::format::problem::reader::{ApiProblem, ProblemProperties};
@@ -9,6 +10,7 @@ use crate::format::problem::Matrix;
 use crate::parse_time;
 use hashbrown::{HashMap, HashSet};
 use std::sync::Arc;
+use vrp_core::construction::constraints::AREA_DIMEN_KEY;
 use vrp_core::construction::constraints::{Area, TravelLimitFunc};
 use vrp_core::models::common::*;
 use vrp_core::models::problem::*;
@@ -138,16 +140,16 @@ pub(crate) fn read_fleet(api_problem: &ApiProblem, props: &ProblemProperties, co
 
             vehicle.vehicle_ids.iter().for_each(|vehicle_id| {
                 let mut dimens: Dimensions = Default::default();
-                dimens.set_value("type_id", vehicle.type_id.clone());
-                dimens.set_value("shift_index", shift_index);
-                dimens.set_id(vehicle_id);
+                dimens.set_value(VEHICLE_TYPE_ID_DIMEN_KEY, vehicle.type_id.clone());
+                dimens.set_value(VEHICLE_SHIFT_INDEX_DIMEN_KEY, shift_index);
+                dimens.set_vehicle_id(vehicle_id);
 
                 if let Some(areas) = areas.take() {
-                    dimens.set_value("areas", areas);
+                    dimens.set_value(AREA_DIMEN_KEY, areas);
                 }
 
                 if let Some(tour_size) = tour_size {
-                    dimens.set_value("tour_size", tour_size);
+                    dimens.set_value(TOUR_SIZE_DIMEN_KEY, tour_size);
                 }
 
                 if props.has_multi_dimen_capacity {
@@ -196,7 +198,9 @@ pub fn read_travel_limits(api_problem: &ApiProblem) -> Option<TravelLimitFunc> {
         None
     } else {
         Some(Arc::new(move |actor: &Actor| {
-            if let Some(limits) = limits.get(actor.vehicle.dimens.get_value::<String>("type_id").unwrap()) {
+            if let Some(limits) =
+                limits.get(actor.vehicle.dimens.get_value::<String>(VEHICLE_TYPE_ID_DIMEN_KEY).unwrap())
+            {
                 (limits.0, limits.1)
             } else {
                 (None, None)
@@ -207,6 +211,6 @@ pub fn read_travel_limits(api_problem: &ApiProblem) -> Option<TravelLimitFunc> {
 
 fn add_vehicle_skills(dimens: &mut Dimensions, skills: &Option<Vec<String>>) {
     if let Some(skills) = skills {
-        dimens.set_value("skills", skills.iter().cloned().collect::<HashSet<_>>());
+        dimens.set_value(SKILLS_DIMEN_KEY, skills.iter().cloned().collect::<HashSet<_>>());
     }
 }

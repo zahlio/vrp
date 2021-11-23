@@ -2,9 +2,8 @@ use crate::construction::constraints::{ConstraintPipeline, TOTAL_DISTANCE_KEY, T
 use crate::construction::heuristics::{InsertionContext, RegistryContext, SolutionContext};
 use crate::helpers::models::problem::*;
 use crate::helpers::models::solution::create_route_context_with_activities;
-use crate::models::common::IdDimension;
 use crate::models::examples::create_example_problem;
-use crate::models::problem::{Fleet, Job, Jobs, ObjectiveCost};
+use crate::models::problem::{Fleet, Job, JobIdDimension, Jobs, ObjectiveCost};
 use crate::models::solution::Registry;
 use crate::models::{Problem, Solution};
 use crate::utils::{DefaultRandom, Environment, Random};
@@ -136,5 +135,5 @@ pub fn get_customer_ids_from_unassigned(insertion_ctx: &InsertionContext) -> Vec
 }
 
 pub fn get_customer_id(job: &Job) -> String {
-    job.dimens().get_id().unwrap().clone()
+    job.dimens().get_job_id().unwrap().clone()
 }

@@ -8,7 +8,7 @@ use std::io::{BufReader, Read};
 use std::sync::Arc;
 use vrp_core::models::common::*;
 use vrp_core::models::problem::*;
-use vrp_core::models::{Extras, Problem};
+use vrp_core::models::Problem;
 
 /// A trait read write solomon problem.
 pub trait SolomonProblem {
@@ -87,7 +87,7 @@ impl<R: Read> SolomonReader<R> {
         loop {
             match self.read_customer() {
                 Ok(customer) => {
-                    let mut dimens = create_dimens_with_id("", &customer.id.to_string());
+                    let mut dimens = create_job_dimens_with_id("", &customer.id.to_string());
                     dimens.set_demand(Demand::<SingleDimLoad> {
                         pickup: (SingleDimLoad::default(), SingleDimLoad::default()),
                         delivery: (SingleDimLoad::new(customer.demand as i32), SingleDimLoad::default()),

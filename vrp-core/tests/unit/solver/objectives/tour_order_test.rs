@@ -2,15 +2,15 @@ use super::*;
 use crate::construction::heuristics::RouteContext;
 use crate::helpers::models::problem::*;
 use crate::helpers::models::solution::*;
-use crate::models::common::{IdDimension, ValueDimension};
+use crate::models::common::ValueDimension;
 use crate::models::solution::Activity;
 
 fn create_single_with_order(id: &str, order: Option<f64>) -> Arc<Single> {
     let mut single = test_single();
-    single.dimens.set_id(id);
+    single.dimens.set_job_id(id);
 
     if let Some(order) = order {
-        single.dimens.insert("order".to_string(), Arc::new(order));
+        single.dimens.insert(ORDER_DIMEN_KEY, Arc::new(order));
     }
 
     Arc::new(single)
@@ -37,7 +37,7 @@ fn can_get_violations() {
         Arc::new(RouteState::default()),
     );
 
-    let violations = get_violations(&[route], &|single| single.dimens.get_value::<f64>("order").cloned());
+    let violations = get_violations(&[route], &|single| single.dimens.get_value::<f64>(ORDER_DIMEN_KEY).cloned());
 
     assert_eq!(violations, 1);
 }
@@ -56,12 +56,13 @@ can_merge_order! {
 
 fn can_merge_order_impl(source: Option<f64>, candidate: Option<f64>, expected: Result<Option<f64>, i32>) {
     let (constraint, _) =
-        TourOrder::new_unconstrained(Arc::new(|single| single.dimens.get_value::<f64>("order").cloned()));
+        TourOrder::new_unconstrained(Arc::new(|single| single.dimens.get_value::<f64>(ORDER_DIMEN_KEY).cloned()));
     let source_job = Job::Single(create_single_with_order("source", source));
     let candidate_job = Job::Single(create_single_with_order("candidate", candidate));
 
-    let result =
-        constraint.merge(source_job, candidate_job).map(|merged| merged.dimens().get_value::<f64>("order").cloned());
+    let result = constraint
+        .merge(source_job, candidate_job)
+        .map(|merged| merged.dimens().get_value::<f64>(ORDER_DIMEN_KEY).cloned());
 
     assert_eq!(result, expected);
 }

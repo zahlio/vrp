@@ -6,7 +6,7 @@ use vrp_core::models::common::SingleDimLoad;
 fn can_handle_reload_jobs_with_merge() {
     let create_reload = || {
         let mut single = create_single_with_location(None);
-        single.dimens.set_value("type", "reload".to_string());
+        single.dimens.set_job_type("reload");
 
         Job::Single(Arc::new(single))
     };

@@ -2,6 +2,7 @@
 #[path = "../../../tests/unit/models/problem/jobs_test.rs"]
 mod jobs_test;
 
+use crate::construction::constraints::MULTI_REF_DIMEN_KEY;
 use crate::models::common::*;
 use crate::models::problem::{Costs, Fleet, TransportCost};
 use crate::utils::compare_floats;
@@ -175,7 +176,7 @@ impl Multi {
             let weak_multi = Arc::downgrade(&multi);
             let job: Arc<SingleConstruct> = unsafe { std::mem::transmute(job.clone()) };
             let dimens = unsafe { &mut *job.dimens.get() };
-            dimens.set_value("rf", weak_multi);
+            dimens.set_value(MULTI_REF_DIMEN_KEY, weak_multi);
         });
 
         multi
@@ -183,7 +184,7 @@ impl Multi {
 
     /// Returns parent multi job for given sub-job.
     pub fn roots(single: &Single) -> Option<Arc<Multi>> {
-        single.dimens.get_value::<Weak<Multi>>("rf").and_then(|w| w.upgrade())
+        single.dimens.get_value::<Weak<Multi>>(MULTI_REF_DIMEN_KEY).and_then(|w| w.upgrade())
     }
 }
 

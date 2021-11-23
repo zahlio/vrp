@@ -58,6 +58,7 @@ pub trait MultiTrip<T: Load + Add<Output = T> + Sub<Output = T> + 'static> {
 pub struct CapacityConstraintModule<T: Load + Add<Output = T> + Sub<Output = T> + 'static> {
     code: i32,
     state_keys: Vec<i32>,
+    dimen_keys: Vec<i32>,
     conditional: ConditionalJobModule,
     transport: Arc<dyn TransportCost + Send + Sync>,
     constraints: Vec<ConstraintVariant>,
@@ -81,6 +82,7 @@ impl<T: Load + Add<Output = T> + Sub<Output = T> + Add<Output = T> + Sub<Output 
         Self {
             code,
             state_keys: vec![CURRENT_CAPACITY_KEY, MAX_FUTURE_CAPACITY_KEY, MAX_PAST_CAPACITY_KEY],
+            dimen_keys: vec![CAPACITY_DIMEN_KEY, DEMAND_DIMEN_KEY],
             conditional: ConditionalJobModule::new(Box::new(ConcreteJobContextTransition {
                 remove_required: {
                     let multi_trip = multi_trip.clone();
@@ -375,6 +377,10 @@ impl<T: Load + Add<Output = T> + Sub<Output = T> + 'static> ConstraintModule for
 
     fn state_keys(&self) -> Iter<i32> {
         self.state_keys.iter()
+    }
+
+    fn dimen_keys(&self) -> Iter<i32> {
+        self.dimen_keys.iter()
     }
 
     fn get_constraints(&self) -> Iter<ConstraintVariant> {

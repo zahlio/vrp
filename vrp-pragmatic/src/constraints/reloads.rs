@@ -7,7 +7,7 @@ use std::ops::{Add, Deref, Sub};
 use std::sync::Arc;
 use vrp_core::construction::constraints::*;
 use vrp_core::construction::heuristics::RouteContext;
-use vrp_core::models::common::{IdDimension, Load, ValueDimension};
+use vrp_core::models::common::Load;
 use vrp_core::models::problem::{Job, Single};
 use vrp_core::models::solution::{Activity, Route};
 
@@ -28,7 +28,7 @@ impl<T: Load + Add<Output = T> + Sub<Output = T> + 'static> MultiTrip<T> for Rel
     }
 
     fn is_reload_single(&self, single: &Single) -> bool {
-        single.dimens.get_value::<String>("type").map_or(false, |t| t == "reload")
+        single.dimens.get_job_type().map_or(false, |t| t == "reload")
     }
 
     fn is_assignable(&self, route: &Route, job: &Job) -> bool {
@@ -65,7 +65,7 @@ impl<T: Load + Add<Output = T> + Sub<Output = T> + 'static> MultiTrip<T> for Rel
         jobs: &'a [Job],
     ) -> Box<dyn Iterator<Item = Job> + 'a + Send + Sync> {
         let shift_index = get_shift_index(&route.actor.vehicle.dimens);
-        let vehicle_id = route.actor.vehicle.dimens.get_id().unwrap();
+        let vehicle_id = route.actor.vehicle.dimens.get_vehicle_id();
 
         Box::new(
             jobs.iter()
@@ -73,7 +73,7 @@ impl<T: Load + Add<Output = T> + Sub<Output = T> + 'static> MultiTrip<T> for Rel
                     Job::Single(job) => {
                         self.is_reload_single(job)
                             && get_shift_index(&job.dimens) == shift_index
-                            && get_vehicle_id_from_job(job).unwrap() == vehicle_id
+                            && get_vehicle_id_from_job(job) == vehicle_id
                     }
                     _ => false,
                 })

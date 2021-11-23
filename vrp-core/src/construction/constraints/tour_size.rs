@@ -14,7 +14,7 @@ pub type TourSizeResolver = Arc<dyn Fn(&Actor) -> Option<usize> + Sync + Send>;
 
 /// Limits amount of job activities per tour.
 pub struct TourSizeModule {
-    state_keys: Vec<i32>,
+    empty_keys: Vec<i32>,
     constraints: Vec<ConstraintVariant>,
 }
 
@@ -23,7 +23,7 @@ impl TourSizeModule {
     pub fn new(limit_func: TourSizeResolver, code: i32) -> Self {
         Self {
             constraints: vec![ConstraintVariant::HardRoute(Arc::new(TourSizeHardRouteConstraint { code, limit_func }))],
-            state_keys: vec![],
+            empty_keys: vec![],
         }
     }
 }
@@ -40,7 +40,11 @@ impl ConstraintModule for TourSizeModule {
     }
 
     fn state_keys(&self) -> Iter<i32> {
-        self.state_keys.iter()
+        self.empty_keys.iter()
+    }
+
+    fn dimen_keys(&self) -> Iter<i32> {
+        self.empty_keys.iter()
     }
 
     fn get_constraints(&self) -> Iter<ConstraintVariant> {

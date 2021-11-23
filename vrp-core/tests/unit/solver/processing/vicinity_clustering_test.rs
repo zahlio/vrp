@@ -4,8 +4,7 @@ use crate::helpers::construction::clustering::vicinity::*;
 use crate::helpers::models::domain::*;
 use crate::helpers::models::problem::*;
 use crate::helpers::models::solution::*;
-use crate::models::common::IdDimension;
-use crate::models::problem::Job;
+use crate::models::problem::{Job, JobIdDimension};
 use crate::models::solution::{Commute, CommuteInfo};
 use crate::utils::as_mut;
 
@@ -105,7 +104,7 @@ fn can_unwrap_clusters_in_route_on_post_process_impl(
     let job_activities = route_ctx.route.tour.all_activities().skip(1).take(3).collect::<Vec<_>>();
     assert_eq!(job_activities.len(), expected.len());
     job_activities.into_iter().zip(expected.into_iter()).for_each(|(activity, (id, (arrival, departure)))| {
-        assert_eq!(activity.job.as_ref().unwrap().dimens.get_id().unwrap(), id);
+        assert_eq!(activity.job.as_ref().unwrap().dimens.get_job_id().unwrap(), id);
         assert_eq!(activity.schedule.arrival, arrival);
         assert_eq!(activity.schedule.departure, departure);
     });

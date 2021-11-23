@@ -8,7 +8,7 @@ use crate::models::problem::Fleet;
 
 fn create_fleet(areas: Vec<Area>) -> Fleet {
     let mut vehicle = test_vehicle_with_id("v1");
-    vehicle.dimens.set_value("areas", areas);
+    vehicle.dimens.set_value(AREA_DIMEN_KEY, areas);
 
     FleetBuilder::default()
         .add_driver(test_driver())
@@ -19,7 +19,7 @@ fn create_fleet(areas: Vec<Area>) -> Fleet {
 
 fn create_area_constraint_pipeline() -> ConstraintPipeline {
     create_constraint_pipeline_with_module(Arc::new(AreaModule::new(
-        Arc::new(move |actor| actor.vehicle.dimens.get_value::<Vec<Area>>("areas")),
+        Arc::new(move |actor| actor.vehicle.dimens.get_value::<Vec<Area>>(AREA_DIMEN_KEY)),
         Arc::new(|location| (location as f64, 0.)),
         2,
     )))
@@ -154,7 +154,7 @@ can_estimate_activity_with_penalty! {
 fn can_estimate_activity_with_penalty_impl(priority: Option<usize>, route_cost: Option<Cost>, expected_cost: Cost) {
     let areas = vec![Area { priority, outer_shape: vec![(-1., -1.), (-1., 1.), (1., 1.), (1., -1.)] }];
     let area_constraint = AreaSoftActivityConstraint {
-        area_resolver: Arc::new(move |actor| actor.vehicle.dimens.get_value::<Vec<Area>>("areas")),
+        area_resolver: Arc::new(move |actor| actor.vehicle.dimens.get_value::<Vec<Area>>(AREA_DIMEN_KEY)),
         location_resolver: Arc::new(|location| (location as f64, 0.)),
     };
 

@@ -40,7 +40,7 @@ fn create_example_fleet() -> Arc<Fleet> {
         details: vec![],
     })];
     let mut vehicle_dimens = Dimensions::new();
-    vehicle_dimens.set_id("v1");
+    vehicle_dimens.set_vehicle_id("v1");
     let vehicles = vec![Arc::new(Vehicle {
         profile: Profile::default(),
         costs: Costs { fixed: 0., per_distance: 1., per_driving_time: 0., per_waiting_time: 0., per_service_time: 0. },

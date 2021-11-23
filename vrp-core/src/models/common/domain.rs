@@ -216,46 +216,40 @@ impl PartialEq<Schedule> for Schedule {
 
 impl Eq for Schedule {}
 
+/// Specifies a type used to store any values using string as a key.
+pub type Extras = HashMap<String, Arc<dyn Any + Send + Sync>>;
+
 /// Multiple named dimensions which can contain anything:
 /// * unit of measure, e.g. volume, mass, size, etc.
 /// * set of skills
 /// * tag.
-pub type Dimensions = HashMap<String, Arc<dyn Any + Send + Sync>>;
+pub type Dimensions = HashMap<i32, Arc<dyn Any + Send + Sync>>;
 
 /// A trait to return arbitrary typed value by its key.
-pub trait ValueDimension {
+pub trait ValueDimension<K: Hash> {
     /// Gets value from dimension with given key.
-    fn get_value<T: 'static>(&self, key: &str) -> Option<&T>;
+    fn get_value<V: 'static>(&self, key: K) -> Option<&V>;
     /// Sets value in dimension with given key and value.
-    fn set_value<T: 'static + Sync + Send>(&mut self, key: &str, value: T);
+    fn set_value<V: 'static + Sync + Send>(&mut self, key: K, value: V);
 }
 
-impl ValueDimension for Dimensions {
-    fn get_value<T: 'static>(&self, key: &str) -> Option<&T> {
-        self.get(key).and_then(|any| any.downcast_ref::<T>())
+impl ValueDimension<i32> for Dimensions {
+    fn get_value<V: 'static>(&self, key: i32) -> Option<&V> {
+        self.get(&key).and_then(|any| any.downcast_ref::<V>())
     }
 
-    fn set_value<T: 'static + Sync + Send>(&mut self, key: &str, value: T) {
-        self.insert(key.to_owned(), Arc::new(value));
+    fn set_value<V: 'static + Sync + Send>(&mut self, key: i32, value: V) {
+        self.insert(key, Arc::new(value));
     }
 }
 
-/// A trait to get or set id.
-pub trait IdDimension {
-    /// Sets value as id.
-    fn set_id(&mut self, id: &str) -> &mut Self;
-    /// Gets id value if present.
-    fn get_id(&self) -> Option<&String>;
-}
-
-impl IdDimension for Dimensions {
-    fn set_id(&mut self, id: &str) -> &mut Self {
-        self.set_value("id", id.to_string());
-        self
+impl ValueDimension<&str> for Extras {
+    fn get_value<V: 'static>(&self, key: &str) -> Option<&V> {
+        self.get(key).and_then(|any| any.downcast_ref::<V>())
     }
 
-    fn get_id(&self) -> Option<&String> {
-        self.get_value("id")
+    fn set_value<V: 'static + Sync + Send>(&mut self, key: &str, value: V) {
+        self.insert(key.to_string(), Arc::new(value));
     }
 }
 

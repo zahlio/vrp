@@ -22,6 +22,7 @@ pub type TravelLimitFunc = Arc<dyn Fn(&Actor) -> (Option<Distance>, Option<Durat
 /// and traveling constraints. Also it is responsible for transport cost calculations.
 pub struct TransportConstraintModule {
     state_keys: Vec<i32>,
+    dimen_keys: Vec<i32>,
     constraints: Vec<ConstraintVariant>,
     transport: Arc<dyn TransportCost + Send + Sync>,
     limit_func: TravelLimitFunc,
@@ -70,6 +71,10 @@ impl ConstraintModule for TransportConstraintModule {
         self.state_keys.iter()
     }
 
+    fn dimen_keys(&self) -> Iter<i32> {
+        self.dimen_keys.iter()
+    }
+
     fn get_constraints(&self) -> Iter<ConstraintVariant> {
         self.constraints.iter()
     }
@@ -93,6 +98,7 @@ impl TransportConstraintModule {
                 TOTAL_DURATION_KEY,
                 LIMIT_DURATION_KEY,
             ],
+            dimen_keys: vec![],
             constraints: vec![
                 ConstraintVariant::HardRoute(Arc::new(TimeHardRouteConstraint { code: time_window_code })),
                 ConstraintVariant::SoftRoute(Arc::new(RouteCostSoftRouteConstraint {})),

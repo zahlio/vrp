@@ -1,4 +1,4 @@
-use crate::constraints::{JobSkills, SkillsModule};
+use crate::constraints::{JobSkills, SkillsModule, SKILLS_DIMEN_KEY};
 use crate::core::construction::constraints::ConstraintModule;
 use crate::extensions::create_typed_actor_groups;
 use crate::helpers::*;
@@ -13,7 +13,7 @@ use vrp_core::models::problem::{Fleet, Job, Vehicle};
 fn create_job_with_skills(all_of: Option<Vec<&str>>, one_of: Option<Vec<&str>>, none_of: Option<Vec<&str>>) -> Job {
     let mut single = create_single_with_location(None);
     single.dimens.set_value(
-        "skills",
+        SKILLS_DIMEN_KEY,
         JobSkills {
             all_of: all_of.map(|skills| skills.iter().map(|s| s.to_string()).collect()),
             one_of: one_of.map(|skills| skills.iter().map(|s| s.to_string()).collect()),
@@ -28,7 +28,7 @@ fn create_vehicle_with_skills(skills: Option<Vec<&str>>) -> Vehicle {
     let mut vehicle = test_vehicle("v1");
 
     if let Some(skills) = skills {
-        vehicle.dimens.set_value("skills", HashSet::<String>::from_iter(skills.iter().map(|s| s.to_string())));
+        vehicle.dimens.set_value(SKILLS_DIMEN_KEY, HashSet::<String>::from_iter(skills.iter().map(|s| s.to_string())));
     }
 
     vehicle

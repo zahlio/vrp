@@ -28,7 +28,7 @@ pub type LocationResolver = Arc<dyn Fn(Location) -> (f64, f64) + Sync + Send>;
 /// An area module provides way to restrict given actor to work in specific areas only.
 pub struct AreaModule {
     constraints: Vec<ConstraintVariant>,
-    keys: Vec<i32>,
+    empty_keys: Vec<i32>,
 }
 
 impl AreaModule {
@@ -51,7 +51,7 @@ impl AreaModule {
                     location_resolver,
                 })),
             ],
-            keys: vec![],
+            empty_keys: vec![],
         }
     }
 }
@@ -70,7 +70,11 @@ impl ConstraintModule for AreaModule {
     }
 
     fn state_keys(&self) -> Iter<i32> {
-        self.keys.iter()
+        self.empty_keys.iter()
+    }
+
+    fn dimen_keys(&self) -> Iter<i32> {
+        self.empty_keys.iter()
     }
 
     fn get_constraints(&self) -> Iter<ConstraintVariant> {

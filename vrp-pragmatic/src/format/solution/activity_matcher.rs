@@ -1,15 +1,15 @@
-use crate::format::{CoordIndex, JobIndex};
-use crate::parse_time;
-use std::iter::once;
-use std::sync::Arc;
-use vrp_core::models::common::*;
-use vrp_core::models::problem::{Job, Single};
-use vrp_core::models::solution::{Activity, Place};
-
+use crate::constraints::TAGS_DIMEN_KEY;
 use crate::format::solution::Activity as FormatActivity;
 use crate::format::solution::Stop as FormatStop;
 use crate::format::solution::Tour as FormatTour;
+use crate::format::{CoordIndex, JobIndex};
+use crate::parse_time;
 use hashbrown::HashSet;
+use std::iter::once;
+use std::sync::Arc;
+use vrp_core::models::common::*;
+use vrp_core::models::problem::{Job, JobIdDimension, Single};
+use vrp_core::models::solution::{Activity, Place};
 
 /// Aggregates job specific information for a job activity.
 pub(crate) struct JobInfo(pub Job, pub Arc<Single>, pub Place, pub TimeWindow);
@@ -53,7 +53,7 @@ pub(crate) fn try_match_job(
                     let tags = multi
                         .jobs
                         .iter()
-                        .filter_map(|single| single.dimens.get_value::<Vec<(usize, String)>>("tags"))
+                        .filter_map(|single| single.dimens.get_value::<Vec<(usize, String)>>(TAGS_DIMEN_KEY))
                         .flat_map(|tags| tags.iter().map(|(_, tag)| tag))
                         .collect::<HashSet<_>>();
                     if tags.len() < multi.jobs.len() {
@@ -145,7 +145,7 @@ fn match_place<'a>(single: &Arc<Single>, is_job_activity: bool, activity_ctx: &'
 
 pub(crate) fn get_job_tag(single: &Single, place: (Location, (TimeWindow, Timestamp))) -> Option<&String> {
     let (location, (time_window, start_time)) = place;
-    single.dimens.get_value::<Vec<(usize, String)>>("tags").map(|tags| (tags, &single.places)).and_then(
+    single.dimens.get_value::<Vec<(usize, String)>>(TAGS_DIMEN_KEY).map(|tags| (tags, &single.places)).and_then(
         |(tags, places)| {
             tags.iter()
                 .find(|(place_idx, _)| {
@@ -177,7 +177,7 @@ fn get_job_id(single: &Arc<Single>) -> String {
     .retrieve_job()
     .unwrap()
     .dimens()
-    .get_id()
+    .get_job_id()
     .cloned()
     .expect("cannot get job id")
 }

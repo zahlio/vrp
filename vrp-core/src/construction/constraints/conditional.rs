@@ -70,14 +70,14 @@ where
 /// Useful to model some optional/conditional activities, e.g. breaks, refueling, etc.
 pub struct ConditionalJobModule {
     context_transition: Box<dyn JobContextTransition + Send + Sync>,
-    state_keys: Vec<i32>,
+    empty_keys: Vec<i32>,
     constraints: Vec<ConstraintVariant>,
 }
 
 impl ConditionalJobModule {
     /// Creates a new instance of `ConditionalJobModule`.
     pub fn new(context_transition: Box<dyn JobContextTransition + Send + Sync>) -> Self {
-        Self { context_transition, state_keys: vec![], constraints: vec![] }
+        Self { context_transition, empty_keys: vec![], constraints: vec![] }
     }
 }
 
@@ -98,7 +98,11 @@ impl ConstraintModule for ConditionalJobModule {
     }
 
     fn state_keys(&self) -> Iter<i32> {
-        self.state_keys.iter()
+        self.empty_keys.iter()
+    }
+
+    fn dimen_keys(&self) -> Iter<i32> {
+        self.empty_keys.iter()
     }
 
     fn get_constraints(&self) -> Iter<ConstraintVariant> {

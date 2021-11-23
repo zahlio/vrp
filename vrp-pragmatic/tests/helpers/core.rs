@@ -1,3 +1,4 @@
+use crate::constraints::*;
 use crate::core::construction::heuristics::InsertionContext;
 use crate::extensions::create_typed_actor_groups;
 use std::sync::Arc;
@@ -22,9 +23,9 @@ pub fn test_driver() -> Driver {
 
 pub fn test_vehicle(id: &str) -> Vehicle {
     let mut dimens = Dimensions::new();
-    dimens.set_id(id);
-    dimens.set_value("type_id", id.to_owned());
-    dimens.set_value("shift_index", 0_usize);
+    dimens.set_vehicle_id(id);
+    dimens.set_value(VEHICLE_TYPE_ID_DIMEN_KEY, id.to_string());
+    dimens.set_value(VEHICLE_SHIFT_INDEX_DIMEN_KEY, 0_usize);
 
     Vehicle {
         profile: Profile::default(),
@@ -46,7 +47,8 @@ pub fn test_fleet() -> Fleet {
 }
 
 pub fn create_route_with_activities(fleet: &Fleet, vehicle: &str, activities: Vec<Activity>) -> Route {
-    let actor = fleet.actors.iter().filter(|a| a.vehicle.dimens.get_id().unwrap() == vehicle).next().unwrap().clone();
+    let actor =
+        fleet.actors.iter().filter(|a| a.vehicle.dimens.get_vehicle_id().unwrap() == vehicle).next().unwrap().clone();
     let mut tour = Tour::new(&actor);
 
     activities.into_iter().enumerate().for_each(|(index, a)| {
@@ -75,8 +77,8 @@ pub fn create_activity_with_job_at_location(job: Arc<Single>, location: Location
 
 pub fn create_single(id: &str) -> Arc<Single> {
     let mut single = create_single_with_location(Some(DEFAULT_JOB_LOCATION));
-    single.dimens.set_id(id);
-    single.dimens.set_value("type", "delivery".to_string());
+    single.dimens.set_job_id(id);
+    single.dimens.set_job_type("delivery");
 
     Arc::new(single)
 }

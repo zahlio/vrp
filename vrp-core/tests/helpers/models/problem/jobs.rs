@@ -1,5 +1,5 @@
 use crate::models::common::*;
-use crate::models::problem::{FixedJobPermutation, Job, Multi, Place, Single};
+use crate::models::problem::{FixedJobPermutation, Job, JobIdDimension, Multi, Place, Single};
 use std::sync::Arc;
 
 pub const DEFAULT_JOB_LOCATION: Location = 0;
@@ -14,7 +14,7 @@ pub fn test_place_with_location(location: Option<Location>) -> Place {
 pub fn test_single() -> Single {
     let mut single =
         Single { places: vec![test_place_with_location(Some(DEFAULT_JOB_LOCATION))], dimens: Default::default() };
-    single.dimens.set_id("single");
+    single.dimens.set_job_id("single");
     single
 }
 
@@ -26,7 +26,7 @@ pub fn test_single_with_simple_demand(demand: Demand<SingleDimLoad>) -> Arc<Sing
 
 pub fn test_single_with_id(id: &str) -> Arc<Single> {
     let mut single = test_single();
-    single.dimens.set_id(id);
+    single.dimens.set_job_id(id);
     Arc::new(single)
 }
 
@@ -36,7 +36,7 @@ pub fn test_single_with_location(location: Option<Location>) -> Arc<Single> {
 
 pub fn test_single_with_id_and_location(id: &str, location: Option<Location>) -> Arc<Single> {
     let mut single = Single { places: vec![test_place_with_location(location)], dimens: Default::default() };
-    single.dimens.set_id(id);
+    single.dimens.set_job_id(id);
     Arc::new(single)
 }
 
@@ -52,7 +52,7 @@ pub fn test_multi_job_with_locations(locations: Vec<Vec<Option<Location>>>) -> A
 }
 
 pub fn get_job_id(job: &Job) -> &String {
-    job.dimens().get_id().unwrap()
+    job.dimens().get_job_id().unwrap()
 }
 
 pub struct SingleBuilder {
@@ -67,7 +67,7 @@ impl Default for SingleBuilder {
 
 impl SingleBuilder {
     pub fn id(&mut self, id: &str) -> &mut Self {
-        self.single.dimens.set_value("id", id.to_string());
+        self.single.dimens.set_job_id(id);
         self
     }
 
@@ -121,7 +121,7 @@ impl SingleBuilder {
 fn test_multi() -> Multi {
     let mut multi =
         Multi::new(vec![test_single_with_id("single1"), test_single_with_id("single2")], Default::default());
-    multi.dimens.set_id("multi");
+    multi.dimens.set_job_id("multi");
     multi
 }
 
@@ -133,7 +133,7 @@ pub struct MultiBuilder {
 impl Default for MultiBuilder {
     fn default() -> Self {
         let mut multi = Multi::new(vec![], Default::default());
-        multi.dimens.set_id("multi");
+        multi.dimens.set_job_id("multi");
 
         Self { multi, custom_permutator: false }
     }
@@ -152,7 +152,7 @@ impl MultiBuilder {
     }
 
     pub fn id(&mut self, id: &str) -> &mut Self {
-        self.multi.dimens.set_id(id);
+        self.multi.dimens.set_job_id(id);
         self
     }
 

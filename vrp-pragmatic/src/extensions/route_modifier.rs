@@ -1,8 +1,10 @@
+use crate::constraints::*;
 use crate::format::{JobIndex, UNASSIGNABLE_ROUTE_KEY};
 use std::sync::Arc;
 use vrp_core::construction::constraints::ConstraintPipeline;
 use vrp_core::construction::heuristics::*;
-use vrp_core::models::common::{IdDimension, ValueDimension};
+use vrp_core::models::common::ValueDimension;
+use vrp_core::models::problem::VehicleIdDimension;
 use vrp_core::utils::compare_floats;
 use vrp_core::utils::Random;
 
@@ -16,8 +18,9 @@ pub fn get_route_modifier(
         let actor = &route_ctx.route.actor;
         let vehicle = &actor.vehicle;
 
-        let shift_index = vehicle.dimens.get_value::<usize>("shift_index").expect("cannot find shift index");
-        let vehicle_id = vehicle.dimens.get_id().expect("cannot get vehicle id");
+        let shift_index =
+            vehicle.dimens.get_value::<usize>(VEHICLE_SHIFT_INDEX_DIMEN_KEY).expect("cannot find shift index");
+        let vehicle_id = vehicle.dimens.get_vehicle_id().expect("cannot get vehicle id");
 
         let candidates = (1..)
             .map(|idx| format!("{}_dispatch_{}_{}", vehicle_id, shift_index, idx))

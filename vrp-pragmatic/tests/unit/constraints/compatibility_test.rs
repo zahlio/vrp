@@ -9,7 +9,7 @@ const STATE_KEY: i32 = 2;
 fn create_test_single(compatibility: Option<String>) -> Arc<Single> {
     let mut single = create_single_with_location(Some(DEFAULT_JOB_LOCATION));
     if let Some(compatibility) = compatibility {
-        single.dimens.set_value("compat", compatibility)
+        single.dimens.set_value(COMPATIBILITY_DIMEN_KEY, compatibility)
     }
 
     Arc::new(single)

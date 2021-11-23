@@ -2,6 +2,7 @@
 #[path = "../../../tests/unit/format/solution/writer_test.rs"]
 mod writer_test;
 
+use crate::constraints::*;
 use crate::format::coord_index::CoordIndex;
 use crate::format::solution::activity_matcher::get_job_tag;
 use crate::format::solution::model::Timing;
@@ -11,22 +12,23 @@ use crate::format_time;
 use std::io::{BufWriter, Write};
 use vrp_core::construction::constraints::route_intervals;
 use vrp_core::models::common::*;
-use vrp_core::models::problem::Multi;
+use vrp_core::models::problem::{JobIdDimension, Multi, VehicleIdDimension};
 use vrp_core::models::solution::{Activity, Route};
 use vrp_core::models::{Problem, Solution};
 use vrp_core::solver::processing::VicinityDimension;
 use vrp_core::solver::Metrics;
 
 type ApiActivity = crate::format::solution::model::Activity;
+type ApiExtras = crate::format::solution::Extras;
 type ApiSolution = crate::format::solution::model::Solution;
 type ApiSchedule = crate::format::solution::model::Schedule;
 type ApiMetrics = crate::format::solution::model::Metrics;
 type ApiGeneration = crate::format::solution::model::Generation;
 type AppPopulation = crate::format::solution::model::Population;
 type ApiIndividual = crate::format::solution::model::Individual;
+type DomainExtras = vrp_core::models::common::Extras;
 type DomainSchedule = vrp_core::models::common::Schedule;
 type DomainLocation = vrp_core::models::common::Location;
-type DomainExtras = vrp_core::models::Extras;
 
 /// A trait to serialize solution in pragmatic format.
 pub trait PragmaticSolution<W: Write> {
@@ -116,9 +118,9 @@ fn create_tour(problem: &Problem, route: &Route, coord_index: &CoordIndex) -> To
     let transport = problem.transport.as_ref();
 
     let mut tour = Tour {
-        vehicle_id: vehicle.dimens.get_id().unwrap().clone(),
-        type_id: vehicle.dimens.get_value::<String>("type_id").unwrap().to_string(),
-        shift_index: *vehicle.dimens.get_value::<usize>("shift_index").unwrap(),
+        vehicle_id: vehicle.dimens.get_vehicle_id().unwrap().clone(),
+        type_id: vehicle.dimens.get_value::<String>(VEHICLE_TYPE_ID_DIMEN_KEY).unwrap().to_string(),
+        shift_index: *vehicle.dimens.get_value::<usize>(VEHICLE_SHIFT_INDEX_DIMEN_KEY).unwrap(),
         stops: vec![],
         statistic: Statistic::default(),
     };
@@ -143,7 +145,7 @@ fn create_tour(problem: &Problem, route: &Route, coord_index: &CoordIndex) -> To
             let (has_dispatch, is_same_location) = route.tour.get(1).map_or((false, false), |activity| {
                 let has_dispatch = activity
                     .retrieve_job()
-                    .and_then(|job| job.dimens().get_value::<String>("type").cloned())
+                    .and_then(|job| job.dimens().get_job_type().cloned())
                     .map_or(false, |job_type| job_type == "dispatch");
 
                 let is_same_location = start.place.location == activity.place.location;
@@ -201,8 +203,8 @@ fn create_tour(problem: &Problem, route: &Route, coord_index: &CoordIndex) -> To
                 let job_id = match activity_type.as_str() {
                     "pickup" | "delivery" | "replacement" | "service" => {
                         let single = act.job.as_ref().unwrap();
-                        let id = single.dimens.get_id().cloned();
-                        id.unwrap_or_else(|| Multi::roots(single).unwrap().dimens.get_id().unwrap().clone())
+                        let id = single.dimens.get_job_id().cloned();
+                        id.unwrap_or_else(|| Multi::roots(single).unwrap().dimens.get_job_id().unwrap().clone())
                     }
                     _ => activity_type.clone(),
                 };
@@ -336,8 +338,8 @@ fn create_tour(problem: &Problem, route: &Route, coord_index: &CoordIndex) -> To
 
     leg.statistic.cost += vehicle.costs.fixed;
 
-    tour.vehicle_id = vehicle.dimens.get_id().unwrap().clone();
-    tour.type_id = vehicle.dimens.get_value::<String>("type_id").unwrap().clone();
+    tour.vehicle_id = vehicle.dimens.get_vehicle_id().unwrap().clone();
+    tour.type_id = vehicle.dimens.get_value::<String>(VEHICLE_TYPE_ID_DIMEN_KEY).unwrap().clone();
     tour.statistic = leg.statistic;
 
     tour
@@ -357,11 +359,11 @@ fn create_unassigned(solution: &Solution) -> Option<Vec<UnassignedJob>> {
     let unassigned = solution
         .unassigned
         .iter()
-        .filter(|(job, _)| job.dimens().get_value::<String>("vehicle_id").is_none())
+        .filter(|(job, _)| job.dimens().get_vehicle_id().is_none())
         .map(|(job, code)| {
             let (code, reason) = map_code_reason(*code);
             UnassignedJob {
-                job_id: job.dimens().get_id().expect("job id expected").clone(),
+                job_id: job.dimens().get_job_id().expect("job id expected").clone(),
                 reasons: vec![UnassignedJobReason { code: code.to_string(), description: reason.to_string() }],
             }
         })
@@ -379,10 +381,10 @@ fn create_violations(solution: &Solution) -> Option<Vec<Violation>> {
     let violations = solution
         .unassigned
         .iter()
-        .filter(|(job, _)| job.dimens().get_value::<String>("type").map_or(false, |t| t == "break"))
+        .filter(|(job, _)| job.dimens().get_job_type().map_or(false, |t| t == "break"))
         .map(|(job, _)| Violation::Break {
-            vehicle_id: job.dimens().get_value::<String>("vehicle_id").expect("vehicle id").clone(),
-            shift_index: *job.dimens().get_value::<usize>("shift_index").expect("shift index"),
+            vehicle_id: job.dimens().get_vehicle_id().expect("vehicle id").clone(),
+            shift_index: *job.dimens().get_value::<usize>(VEHICLE_SHIFT_INDEX_DIMEN_KEY).expect("shift index"),
         })
         .collect::<Vec<_>>();
 
@@ -394,7 +396,7 @@ fn create_violations(solution: &Solution) -> Option<Vec<Violation>> {
 }
 
 fn get_activity_type(activity: &Activity) -> Option<&String> {
-    activity.job.as_ref().and_then(|single| single.dimens.get_value::<String>("type"))
+    activity.job.as_ref().and_then(|single| single.dimens.get_job_type())
 }
 
 fn get_capacity(dimens: &Dimensions, is_multi_dimen: bool) -> Option<Demand<MultiDimLoad>> {
@@ -431,8 +433,8 @@ fn get_parking_time(extras: &DomainExtras) -> f64 {
     extras.get_cluster_config().map_or(0., |config| config.serving.get_parking())
 }
 
-fn create_extras(_solution: &Solution, metrics: Option<&Metrics>) -> Option<Extras> {
-    metrics.map(|metrics| Extras {
+fn create_extras(_solution: &Solution, metrics: Option<&Metrics>) -> Option<ApiExtras> {
+    metrics.map(|metrics| ApiExtras {
         metrics: Some(ApiMetrics {
             duration: metrics.duration,
             generations: metrics.generations,

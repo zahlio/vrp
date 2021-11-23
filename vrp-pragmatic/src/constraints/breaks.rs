@@ -20,6 +20,7 @@ pub struct BreakModule {
     conditional: ConditionalJobModule,
     constraints: Vec<ConstraintVariant>,
     transport: Arc<dyn TransportCost + Send + Sync>,
+    dimen_keys: Vec<i32>,
 }
 
 /// Specifies break policy.
@@ -41,6 +42,7 @@ impl BreakModule {
                 ConstraintVariant::SoftRoute(Arc::new(BreakSoftRouteConstraint {})),
             ],
             transport,
+            dimen_keys: vec![BREAK_POLICY_DIMEN_KEY],
         }
     }
 }
@@ -70,6 +72,10 @@ impl ConstraintModule for BreakModule {
 
     fn state_keys(&self) -> Iter<i32> {
         self.conditional.state_keys()
+    }
+
+    fn dimen_keys(&self) -> Iter<i32> {
+        self.dimen_keys.iter()
     }
 
     fn get_constraints(&self) -> Iter<ConstraintVariant> {
@@ -237,7 +243,7 @@ fn remove_invalid_breaks(ctx: &mut SolutionContext, transport: &(dyn TransportCo
 //region Helpers
 
 fn is_break_single(single: &Arc<Single>) -> bool {
-    single.dimens.get_value::<String>("type").map_or(false, |t| t == "break")
+    single.dimens.get_job_type().map_or(false, |t| t == "break")
 }
 
 fn as_break_job(activity: &Activity) -> Option<&Arc<Single>> {
@@ -253,7 +259,8 @@ fn can_be_scheduled(rc: &RouteContext, break_job: &Arc<Single>) -> bool {
     let departure = rc.route.tour.start().unwrap().schedule.departure;
     let arrival = rc.route.tour.end().map_or(0., |end| end.schedule.arrival);
     let tour_tw = TimeWindow::new(departure, arrival);
-    let policy = break_job.dimens.get_value::<BreakPolicy>("policy").unwrap_or(&BreakPolicy::SkipIfNoIntersection);
+    let policy =
+        break_job.dimens.get_value::<BreakPolicy>(BREAK_POLICY_DIMEN_KEY).unwrap_or(&BreakPolicy::SkipIfNoIntersection);
 
     get_break_time_windows(break_job, departure).any(|break_tw| match policy {
         BreakPolicy::SkipIfNoIntersection => break_tw.intersects(&tour_tw),
