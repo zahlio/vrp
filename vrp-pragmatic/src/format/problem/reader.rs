@@ -15,11 +15,11 @@ mod objective_reader;
 mod clustering_reader;
 
 use self::clustering_reader::create_cluster_config;
-use self::fleet_reader::{create_transport_costs, read_fleet, read_travel_limits};
+use self::fleet_reader::{create_transport_costs, read_fleet};
 use self::job_reader::{read_jobs_with_extra_locks, read_locks};
 use self::objective_reader::create_objective;
 use crate::constraints::*;
-use crate::extensions::{get_route_modifier, OnlyVehicleActivityCost};
+use crate::extensions::{get_route_modifier, OnlyVehicleActivityCost, VehicleTie};
 use crate::format::coord_index::CoordIndex;
 use crate::format::problem::*;
 use crate::format::*;
@@ -122,6 +122,7 @@ pub struct ProblemProperties {
     has_group: bool,
     has_compatibility: bool,
     has_tour_size_limits: bool,
+    has_tour_travel_limits: bool,
     max_job_value: Option<f64>,
     max_area_value: Option<f64>,
 }
@@ -228,9 +229,16 @@ fn map_to_problem(
         &random,
     );
     let locks = locks.into_iter().chain(read_locks(&api_problem, &job_index).into_iter()).collect::<Vec<_>>();
-    let limits = read_travel_limits(&api_problem).unwrap_or_else(|| Arc::new(|_| (None, None)));
-    let mut constraint =
-        create_constraint_pipeline(&jobs, &fleet, transport.clone(), activity.clone(), &problem_props, &locks, limits);
+    let mut constraint = create_constraint_pipeline(
+        &api_problem,
+        &jobs,
+        &job_index,
+        &fleet,
+        transport.clone(),
+        activity.clone(),
+        &problem_props,
+        &locks,
+    );
 
     let objective = create_objective(&api_problem, &mut constraint, &problem_props);
     let constraint = Arc::new(constraint);
@@ -279,8 +287,8 @@ fn read_reserved_times_index(api_problem: &ApiProblem, fleet: &CoreFleet) -> Res
         .actors
         .iter()
         .filter_map(|actor| {
-            let type_id = actor.vehicle.dimens.get_value::<String>("type_id").unwrap().clone();
-            let shift_idx = *actor.vehicle.dimens.get_value::<usize>("shift_index").unwrap();
+            let type_id = actor.vehicle.dimens.get_vehicle_type().unwrap().clone();
+            let shift_idx = actor.vehicle.dimens.get_shift_index().unwrap();
 
             let times = breaks_map
                 .get(&(type_id, shift_idx))
@@ -308,13 +316,14 @@ fn read_reserved_times_index(api_problem: &ApiProblem, fleet: &CoreFleet) -> Res
 
 #[allow(clippy::too_many_arguments)]
 fn create_constraint_pipeline(
+    api_problem: &ApiProblem,
     jobs: &Jobs,
+    job_index: &JobIndex,
     fleet: &CoreFleet,
     transport: Arc<dyn TransportCost + Send + Sync>,
     activity: Arc<dyn ActivityCost + Send + Sync>,
     props: &ProblemProperties,
     locks: &[Arc<Lock>],
-    limits: TravelLimitFunc,
 ) -> ConstraintPipeline {
     let mut constraint = ConstraintPipeline::default();
 
@@ -325,16 +334,17 @@ fn create_constraint_pipeline(
     constraint.add_module(Arc::new(TransportConstraintModule::new(
         transport.clone(),
         activity.clone(),
-        limits,
         TIME_CONSTRAINT_CODE,
-        DISTANCE_LIMIT_CONSTRAINT_CODE,
-        DURATION_LIMIT_CONSTRAINT_CODE,
     )));
 
-    add_capacity_module(&mut constraint, props, activity.clone(), transport.clone());
+    add_capacity_reload_modules(&mut constraint, api_problem, jobs, job_index, props);
+
+    if props.has_tour_travel_limits {
+        add_tour_limit_module(&mut constraint, transport.clone(), api_problem);
+    }
 
     if props.has_breaks {
-        constraint.add_module(Arc::new(BreakModule::new(activity.clone(), transport.clone(), BREAK_CONSTRAINT_CODE)));
+        constraint.add_module(Arc::new(BreakModule::new(BREAK_CONSTRAINT_CODE)));
     }
 
     if props.has_compatibility {
@@ -364,40 +374,116 @@ fn create_constraint_pipeline(
     constraint
 }
 
-fn add_capacity_module(
+fn add_capacity_reload_modules(
     constraint: &mut ConstraintPipeline,
+    api_problem: &ApiProblem,
+    jobs: &Jobs,
+    job_index: &JobIndex,
     props: &ProblemProperties,
-    activity: Arc<dyn ActivityCost + Send + Sync>,
-    transport: Arc<dyn TransportCost + Send + Sync>,
 ) {
-    constraint.add_module(if props.has_reloads {
+    if props.has_reloads {
         let threshold = 0.9;
+
         if props.has_multi_dimen_capacity {
-            Arc::new(CapacityConstraintModule::<MultiDimLoad>::new_with_multi_trip(
-                activity,
-                transport,
-                CAPACITY_CONSTRAINT_CODE,
-                Arc::new(ReloadMultiTrip::new(Box::new(move |capacity| *capacity * threshold))),
-            ))
+            add_capacity_with_reload::<MultiDimLoad>(
+                constraint,
+                api_problem,
+                jobs,
+                job_index,
+                MultiDimLoad::new,
+                Box::new(move |capacity| *capacity * threshold),
+            );
         } else {
-            Arc::new(CapacityConstraintModule::<SingleDimLoad>::new_with_multi_trip(
-                activity,
-                transport,
-                CAPACITY_CONSTRAINT_CODE,
-                Arc::new(ReloadMultiTrip::new(Box::new(move |capacity| *capacity * threshold))),
-            ))
+            add_capacity_with_reload::<SingleDimLoad>(
+                constraint,
+                api_problem,
+                jobs,
+                job_index,
+                |capacity| SingleDimLoad::new(capacity.first().cloned().unwrap_or_default()),
+                Box::new(move |capacity| *capacity * threshold),
+            );
         }
-    } else if props.has_multi_dimen_capacity {
-        Arc::new(CapacityConstraintModule::<MultiDimLoad>::new(activity, transport, CAPACITY_CONSTRAINT_CODE))
     } else {
-        Arc::new(CapacityConstraintModule::<SingleDimLoad>::new(activity, transport, CAPACITY_CONSTRAINT_CODE))
-    });
+        constraint.add_module(if props.has_multi_dimen_capacity {
+            Arc::new(CapacityConstraintModule::<MultiDimLoad>::new(CAPACITY_CONSTRAINT_CODE))
+        } else {
+            Arc::new(CapacityConstraintModule::<SingleDimLoad>::new(CAPACITY_CONSTRAINT_CODE))
+        });
+    }
+}
+
+fn add_capacity_with_reload<T: LoadOps + SharedResource>(
+    constraint: &mut ConstraintPipeline,
+    api_problem: &ApiProblem,
+    jobs: &Jobs,
+    job_index: &JobIndex,
+    capacity_map: fn(Vec<i32>) -> T,
+    load_schedule_threshold_fn: LoadScheduleThresholdFn<T>,
+) {
+    let reload_resources = get_reload_resources(api_problem, job_index, capacity_map);
+
+    if reload_resources.is_empty() {
+        constraint.add_module(Arc::new(CapacityConstraintModule::<T>::new_with_multi_trip(
+            CAPACITY_CONSTRAINT_CODE,
+            Arc::new(create_simple_reload_multi_trip(load_schedule_threshold_fn)),
+        )));
+    } else {
+        let (multi_trip, shared_resource) = create_shared_reload_multi_trip(
+            load_schedule_threshold_fn,
+            reload_resources,
+            jobs.size(),
+            RELOAD_RESOURCE_CONSTRAINT_CODE,
+            RELOAD_RESOURCE_KEY,
+        );
+        constraint.add_module(Arc::new(CapacityConstraintModule::<T>::new_with_multi_trip(
+            CAPACITY_CONSTRAINT_CODE,
+            Arc::new(multi_trip),
+        )));
+        constraint.add_module(Arc::new(shared_resource));
+    };
 }
 
 fn add_tour_size_module(constraint: &mut ConstraintPipeline) {
     constraint.add_module(Arc::new(TourSizeModule::new(
-        Arc::new(|actor| actor.vehicle.dimens.get_value::<usize>("tour_size").cloned()),
+        Arc::new(|actor| actor.vehicle.dimens.get_tour_size()),
         TOUR_SIZE_CONSTRAINT_CODE,
+    )));
+}
+
+fn add_tour_limit_module(
+    constraint: &mut ConstraintPipeline,
+    transport: Arc<dyn TransportCost + Send + Sync>,
+    api_problem: &ApiProblem,
+) {
+    let (distances, durations) = api_problem
+        .fleet
+        .vehicles
+        .iter()
+        .filter_map(|vehicle| vehicle.limits.as_ref().map(|limits| (vehicle, limits)))
+        .fold((HashMap::new(), HashMap::new()), |(mut distances, mut durations), (vehicle, limits)| {
+            limits.max_distance.iter().for_each(|max_distance| {
+                distances.insert(vehicle.type_id.clone(), *max_distance);
+            });
+
+            limits.shift_time.iter().for_each(|shift_time| {
+                durations.insert(vehicle.type_id.clone(), *shift_time);
+            });
+
+            (distances, durations)
+        });
+
+    let get_limit = |limit_map: HashMap<String, f64>| {
+        Arc::new(move |actor: &Actor| {
+            actor.vehicle.dimens.get_vehicle_type().and_then(|v_type| limit_map.get(v_type)).cloned()
+        })
+    };
+
+    constraint.add_module(Arc::new(TravelLimitModule::new(
+        transport.clone(),
+        get_limit(distances),
+        get_limit(durations),
+        DISTANCE_LIMIT_CONSTRAINT_CODE,
+        DURATION_LIMIT_CONSTRAINT_CODE,
     )));
 }
 
@@ -492,6 +578,12 @@ fn get_problem_properties(api_problem: &ApiProblem, matrices: &[Matrix]) -> Prob
     let has_tour_size_limits =
         api_problem.fleet.vehicles.iter().any(|v| v.limits.as_ref().map_or(false, |l| l.tour_size.is_some()));
 
+    let has_tour_travel_limits = api_problem
+        .fleet
+        .vehicles
+        .iter()
+        .any(|v| v.limits.as_ref().map_or(false, |l| l.shift_time.or(l.max_distance).is_some()));
+
     ProblemProperties {
         has_multi_dimen_capacity,
         has_breaks,
@@ -503,7 +595,71 @@ fn get_problem_properties(api_problem: &ApiProblem, matrices: &[Matrix]) -> Prob
         has_group,
         has_compatibility,
         has_tour_size_limits,
+        has_tour_travel_limits,
         max_job_value,
         max_area_value,
     }
+}
+
+fn get_reload_resources<T>(
+    api_problem: &ApiProblem,
+    job_index: &JobIndex,
+    capacity_map: fn(Vec<i32>) -> T,
+) -> HashMap<CoreJob, (T, SharedResourceId)>
+where
+    T: LoadOps + SharedResource,
+{
+    // get available resources
+    let available_resources = api_problem
+        .fleet
+        .resources
+        .as_ref()
+        .iter()
+        .flat_map(|resources| resources.iter())
+        .map(|resource| match resource {
+            VehicleResource::Reload { id, capacity } => (id.clone(), capacity.clone()),
+        })
+        .collect::<Vec<_>>();
+    let total_resources_specified = available_resources.len();
+    let available_resources = available_resources
+        .into_iter()
+        .enumerate()
+        .map(|(idx, (id, capacity))| (id, (idx, capacity)))
+        .collect::<HashMap<_, _>>();
+    assert_eq!(total_resources_specified, available_resources.len());
+
+    // get reload resources
+    api_problem
+        .fleet
+        .vehicles
+        .iter()
+        .flat_map(|vehicle| {
+            vehicle
+                .shifts
+                .iter()
+                .enumerate()
+                .flat_map(|(shift_idx, vehicle_shift)| {
+                    vehicle_shift
+                        .reloads
+                        .iter()
+                        .flatten()
+                        .enumerate()
+                        .map(move |(reload_idx, reload)| (shift_idx, reload_idx + 1, reload))
+                })
+                .filter_map(|(shift_idx, place_idx, reload)| {
+                    reload
+                        .resource_id
+                        .as_ref()
+                        .and_then(|resource_id| available_resources.get(resource_id))
+                        .map(|(resource_id, capacity)| (shift_idx, place_idx, *resource_id, capacity.clone()))
+                })
+                .flat_map(move |(shift_idx, place_idx, resource_id, capacity)| {
+                    vehicle.vehicle_ids.iter().filter_map(move |vehicle_id| {
+                        let job_id = format!("{}_reload_{}_{}", vehicle_id, shift_idx, place_idx);
+                        let capacity = capacity_map(capacity.clone());
+                        job_index.get(&job_id).map(|job| (job.clone(), (capacity, resource_id)))
+                    })
+                })
+        })
+        .collect()
 }

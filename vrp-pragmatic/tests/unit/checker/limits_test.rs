@@ -11,7 +11,7 @@ fn create_test_problem(limits: Option<VehicleLimits>) -> Problem {
                 limits,
                 ..create_default_vehicle_type()
             }],
-            profiles: create_default_matrix_profiles(),
+            ..create_default_fleet()
         },
         ..create_empty_problem()
     }
@@ -25,7 +25,6 @@ fn create_test_solution(statistic: Statistic, stops: Vec<Stop>) -> Solution {
             shift_index: 0,
             stops,
             statistic,
-            ..create_empty_tour()
         }],
         ..create_empty_solution()
     }
@@ -146,16 +145,12 @@ fn can_check_shift_time() {
             vehicles: vec![VehicleType {
                 shifts: vec![VehicleShift {
                     start: ShiftStart { earliest: format_time(0.), latest: None, location: (0., 0.).to_loc() },
-                    end: Some(ShiftEnd {
-                        earliest: None,
-                        latest: format_time(5.).to_string(),
-                        location: (0., 0.).to_loc(),
-                    }),
+                    end: Some(ShiftEnd { earliest: None, latest: format_time(5.), location: (0., 0.).to_loc() }),
                     ..create_default_vehicle_shift()
                 }],
                 ..create_default_vehicle_type()
             }],
-            profiles: create_default_matrix_profiles(),
+            ..create_default_fleet()
         },
         ..create_empty_problem()
     };

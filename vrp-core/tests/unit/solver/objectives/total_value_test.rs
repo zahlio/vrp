@@ -1,5 +1,5 @@
 use super::*;
-use crate::construction::heuristics::{InsertionContext, UnassignedCode};
+use crate::construction::heuristics::{InsertionContext, UnassignmentInfo};
 use crate::helpers::construction::constraints::create_constraint_pipeline_with_module;
 use crate::helpers::models::domain::{create_empty_insertion_context, create_empty_solution_context};
 use crate::helpers::models::problem::{get_job_id, test_single_with_id};
@@ -15,8 +15,8 @@ can_estimate_job_value! {
     case_01: (100., 1000., -10.),
     case_02: (50., 1000., -5.),
     case_03: (50., 100., -0.5),
-    case_04: (100., 0., -10.),
-    case_05: (50., 0., -5.),
+    case_04: (100., 0., -10. * 1E6),
+    case_05: (50., 0., -5. * 1E6),
 }
 
 fn can_estimate_job_value_impl(value: f64, max_cost: f64, expected: f64) {
@@ -53,8 +53,8 @@ fn can_estimate_solution_value() {
         1,
     );
     let mut solution = create_empty_solution_context();
-    solution.unassigned.insert(Job::Single(test_single_with_id("job1")), UnassignedCode::Simple(0));
-    solution.unassigned.insert(Job::Single(test_single_with_id("job2")), UnassignedCode::Simple(1));
+    solution.unassigned.insert(Job::Single(test_single_with_id("job1")), UnassignmentInfo::Simple(0));
+    solution.unassigned.insert(Job::Single(test_single_with_id("job2")), UnassignmentInfo::Simple(1));
     let insertion_ctx = InsertionContext { solution, ..create_empty_insertion_context() };
 
     let fitness = objective.fitness(&insertion_ctx);

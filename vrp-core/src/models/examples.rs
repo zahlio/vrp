@@ -1,4 +1,4 @@
-use crate::construction::constraints::{ConstraintPipeline, TransportConstraintModule};
+use crate::construction::constraints::*;
 use crate::models::common::*;
 use crate::models::problem::*;
 use crate::models::solution::Route;
@@ -48,7 +48,7 @@ fn create_example_fleet() -> Arc<Fleet> {
         dimens: Default::default(),
         details: vec![],
     })];
-    let mut vehicle_dimens = Dimensions::new();
+    let mut vehicle_dimens = Dimensions::default();
     vehicle_dimens.set_id("v1");
     let vehicles = vec![Arc::new(Vehicle {
         profile: Profile::default(),
@@ -70,14 +70,7 @@ pub fn create_example_problem() -> Arc<Problem> {
     let fleet = create_example_fleet();
     let jobs = create_example_jobs(&fleet, &transport);
     let mut constraint = ConstraintPipeline::default();
-    constraint.add_module(Arc::new(TransportConstraintModule::new(
-        transport.clone(),
-        activity.clone(),
-        Arc::new(|_| (None, None)),
-        1,
-        2,
-        3,
-    )));
+    constraint.add_module(Arc::new(TransportConstraintModule::new(transport.clone(), activity.clone(), 1)));
 
     Arc::new(Problem {
         fleet,

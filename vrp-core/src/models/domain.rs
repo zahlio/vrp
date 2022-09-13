@@ -1,13 +1,15 @@
 use crate::construction::constraints::ConstraintPipeline;
-use crate::construction::heuristics::UnassignedCode;
+use crate::construction::heuristics::UnassignmentInfo;
 use crate::models::problem::*;
 use crate::models::solution::{Registry, Route};
 use hashbrown::HashMap;
+use rustc_hash::FxHasher;
 use std::any::Any;
+use std::hash::BuildHasherDefault;
 use std::sync::Arc;
 
 /// Specifies a type used to store any values regarding problem and solution.
-pub type Extras = HashMap<String, Arc<dyn Any + Send + Sync>>;
+pub type Extras = HashMap<String, Arc<dyn Any + Send + Sync>, BuildHasherDefault<FxHasher>>;
 
 /// Defines VRP problem.
 pub struct Problem {
@@ -45,7 +47,7 @@ pub struct Solution {
     pub routes: Vec<Route>,
 
     /// List of unassigned jobs within reason code.
-    pub unassigned: Vec<(Job, UnassignedCode)>,
+    pub unassigned: Vec<(Job, UnassignmentInfo)>,
 
     /// Specifies index for storing extra data of arbitrary type.
     pub extras: Arc<Extras>,

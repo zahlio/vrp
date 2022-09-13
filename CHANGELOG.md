@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+
+## [v1.18.4]
+
+### Changed
+
+* `breaking`: simplify unassigned job reason model
+* fix capacity violation issue related to reload feature
+
+
+## [v1.18.3] - 2022-08-10
+
+### Add
+
+* add shared resource constraint for vehicle reload. Essentially, it is a limit for amount of deliveries picked from
+  specific reload places.
+
+### Changed
+
+* improve obsolete reload removal logic
+* improve groups constraint
+* refactor heuristic research crate
+
+
+## [v1.18.2] - 2022-07-12
+
 ### Added
 
 * `RedistributeSearch` heuristic
@@ -13,6 +38,9 @@ All notable changes to this project will be documented in this file.
 
 * use experimental mode to print dynamic heuristic statistics
 * random trait internals
+* refactor multi trip functionality
+* use faster hash builders inside `RouteState` and `Dimensions`
+* update dependencies
 
 
 ## [v1.18.1] - 2022-05-13
@@ -513,7 +541,10 @@ with Self Organizing MAps and eXtrAs (pronounced as "rosomaha", from russian "р
 
 - Initial commit
 
-[Unreleased]: https://github.com/reinterpretcat/vrp/compare/v1.18.1...HEAD
+[Unreleased]: https://github.com/reinterpretcat/vrp/compare/v1.18.4...HEAD
+[v1.18.4]: https://github.com/reinterpretcat/vrp/compare/v1.18.3...v1.18.4
+[v1.18.3]: https://github.com/reinterpretcat/vrp/compare/v1.18.2...v1.18.3
+[v1.18.2]: https://github.com/reinterpretcat/vrp/compare/v1.18.1..v1.18.2
 [v1.18.1]: https://github.com/reinterpretcat/vrp/compare/v1.18.0..v1.18.1
 [v1.18.0]: https://github.com/reinterpretcat/vrp/compare/v1.17.0..v1.18.0
 [v1.17.0]: https://github.com/reinterpretcat/vrp/compare/v1.16.1..v1.17.0

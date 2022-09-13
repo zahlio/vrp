@@ -82,7 +82,7 @@ pub(crate) fn create_fleet_with_distance_costs(
 }
 
 pub(crate) fn create_dimens_with_id(prefix: &str, id: &str) -> Dimensions {
-    let mut dimens = Dimensions::new();
+    let mut dimens = Dimensions::default();
     dimens.set_id([prefix.to_string(), id.to_string()].concat().as_str());
     dimens
 }
@@ -92,15 +92,8 @@ pub(crate) fn create_constraint(
     transport: Arc<dyn TransportCost + Send + Sync>,
 ) -> ConstraintPipeline {
     let mut constraint = ConstraintPipeline::default();
-    constraint.add_module(Arc::new(TransportConstraintModule::new(
-        transport.clone(),
-        activity.clone(),
-        Arc::new(|_| (None, None)),
-        1,
-        2,
-        3,
-    )));
-    constraint.add_module(Arc::new(CapacityConstraintModule::<SingleDimLoad>::new(activity, transport, 4)));
+    constraint.add_module(Arc::new(TransportConstraintModule::new(transport, activity, 1)));
+    constraint.add_module(Arc::new(CapacityConstraintModule::<SingleDimLoad>::new(4)));
     constraint.add_module(Arc::new(FleetUsageConstraintModule::new_minimized()));
 
     constraint

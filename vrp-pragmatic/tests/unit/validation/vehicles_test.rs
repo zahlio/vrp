@@ -18,7 +18,7 @@ fn can_detect_invalid_break_time() {
                 }],
                 ..create_default_vehicle_type()
             }],
-            profiles: vec![],
+            ..create_default_fleet()
         },
         ..create_empty_problem()
     };
@@ -76,7 +76,7 @@ fn can_detect_invalid_area_impl(
                 }),
                 ..create_default_vehicle_type()
             }],
-            profiles: vec![],
+            ..create_default_fleet()
         },
         ..create_empty_problem()
     };
@@ -105,7 +105,7 @@ can_detect_invalid_dispatch! {
 fn can_detect_invalid_dispatch_impl(dispatch: &[(f64, (f64, f64))], expected: Option<String>) {
     let dispatch = Some(
         dispatch
-            .into_iter()
+            .iter()
             .cloned()
             .map(|(lat, times)| VehicleDispatch {
                 location: Location::Coordinate { lat, lng: 0. },
@@ -117,10 +117,10 @@ fn can_detect_invalid_dispatch_impl(dispatch: &[(f64, (f64, f64))], expected: Op
     let problem = Problem {
         fleet: Fleet {
             vehicles: vec![VehicleType {
-                shifts: vec![VehicleShift { dispatch: dispatch, ..create_default_vehicle_shift() }],
+                shifts: vec![VehicleShift { dispatch, ..create_default_vehicle_shift() }],
                 ..create_default_vehicle_type()
             }],
-            profiles: vec![],
+            ..create_default_fleet()
         },
         ..create_empty_problem()
     };
@@ -150,7 +150,7 @@ fn can_detect_zero_costs_impl(costs: (f64, f64), expected: Option<String>) {
                 costs: VehicleCosts { fixed: None, distance, time },
                 ..create_default_vehicle_type()
             }],
-            profiles: vec![],
+            ..create_default_fleet()
         },
         ..create_empty_problem()
     };
@@ -178,7 +178,7 @@ fn can_handle_rescheduling_with_required_break_impl(latest: Option<f64>, expecte
                 shifts: vec![VehicleShift {
                     start: ShiftStart {
                         earliest: format_time(0.),
-                        latest: latest.map(|latest| format_time(latest)),
+                        latest: latest.map(format_time),
                         location: (0., 0.).to_loc(),
                     },
                     breaks: Some(vec![VehicleBreak::Required {
@@ -189,7 +189,7 @@ fn can_handle_rescheduling_with_required_break_impl(latest: Option<f64>, expecte
                 }],
                 ..create_default_vehicle_type()
             }],
-            profiles: vec![],
+            ..create_default_fleet()
         },
         ..create_empty_problem()
     };
@@ -199,6 +199,43 @@ fn can_handle_rescheduling_with_required_break_impl(latest: Option<f64>, expecte
         None,
         &CoordIndex::new(&problem),
     ));
+
+    assert_eq!(result.err().map(|err| err.code), expected);
+}
+
+parameterized_test! {can_handle_reload_resources, (resources, expected), {
+    can_handle_reload_resources_impl(resources, expected);
+}}
+
+can_handle_reload_resources! {
+    case01: (Some(vec!["r1"]), None),
+    case02: (Some(vec!["r2"]), Some("E1309".to_string())),
+    case03: (Some(vec!["r1", "r1"]), Some("E1309".to_string())),
+}
+
+fn can_handle_reload_resources_impl(resources: Option<Vec<&str>>, expected: Option<String>) {
+    let problem = Problem {
+        fleet: Fleet {
+            vehicles: vec![VehicleType {
+                shifts: vec![VehicleShift {
+                    reloads: Some(vec![VehicleReload {
+                        resource_id: Some("r1".to_string()),
+                        ..create_default_reload()
+                    }]),
+                    ..create_default_vehicle_shift()
+                }],
+                ..create_default_vehicle_type()
+            }],
+            resources: resources.map(|ids| {
+                ids.iter().map(|id| VehicleResource::Reload { id: id.to_string(), capacity: vec![2] }).collect()
+            }),
+            ..create_default_fleet()
+        },
+        ..create_empty_problem()
+    };
+
+    let result =
+        check_e1309_vehicle_reload_resources(&ValidationContext::new(&problem, None, &CoordIndex::new(&problem)));
 
     assert_eq!(result.err().map(|err| err.code), expected);
 }

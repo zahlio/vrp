@@ -10,8 +10,11 @@ use crate::models::solution::*;
 use crate::models::{Extras, Problem, Solution};
 use crate::utils::as_mut;
 use hashbrown::{HashMap, HashSet};
+use nohash_hasher::BuildNoHashHasher;
 use rosomaxa::prelude::*;
+use rustc_hash::FxHasher;
 use std::any::Any;
+use std::hash::BuildHasherDefault;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -98,7 +101,7 @@ pub type StateValue = Arc<dyn Any + Send + Sync>;
 
 /// Keeps information about unassigned reason code.
 #[derive(Clone)]
-pub enum UnassignedCode {
+pub enum UnassignmentInfo {
     /// No code is available.
     Unknown,
     /// Only single code is available.
@@ -116,7 +119,7 @@ pub struct SolutionContext {
     pub ignored: Vec<Job>,
 
     /// Map of jobs which cannot be assigned and within reason code.
-    pub unassigned: HashMap<Job, UnassignedCode>,
+    pub unassigned: HashMap<Job, UnassignmentInfo>,
 
     /// Specifies jobs which should not be affected by ruin.
     pub locked: HashSet<Job>,
@@ -151,10 +154,20 @@ impl SolutionContext {
                 .unassigned
                 .iter()
                 .map(|(job, code)| (job.clone(), code.clone()))
-                .chain(self.required.iter().map(|job| (job.clone(), UnassignedCode::Unknown)))
+                .chain(self.required.iter().map(|job| (job.clone(), UnassignmentInfo::Unknown)))
                 .collect(),
             extras,
         }
+    }
+
+    /// Returns amount of jobs considered by solution context.
+    /// NOTE: the amount can be different for partially solved problem from original problem.
+    pub fn get_jobs_amount(&self) -> usize {
+        let assigned = self.routes.iter().map(|route_ctx| route_ctx.route.tour.job_count()).sum::<usize>();
+
+        let required = self.required.iter().filter(|job| !self.unassigned.contains_key(job)).count();
+
+        self.unassigned.len() + required + self.ignored.len() + assigned
     }
 
     /// Creates a deep copy of `SolutionContext`.
@@ -188,10 +201,10 @@ pub struct RouteContext {
 /// NOTE: do not put any state which is not refreshed after accept_route_state call: it will be
 /// wiped out at some point.
 pub struct RouteState {
-    route_states: HashMap<i32, StateValue>,
-    activity_states: HashMap<ActivityWithKey, StateValue>,
-    route_keys: HashSet<i32>,
-    activity_keys: HashSet<i32>,
+    route_states: HashMap<i32, StateValue, BuildNoHashHasher<i32>>,
+    activity_states: HashMap<ActivityWithKey, StateValue, BuildHasherDefault<FxHasher>>,
+    route_keys: HashSet<i32, BuildNoHashHasher<i32>>,
+    activity_keys: HashSet<i32, BuildNoHashHasher<i32>>,
     flags: u8,
 }
 
@@ -296,10 +309,10 @@ impl Eq for RouteContext {}
 impl Default for RouteState {
     fn default() -> RouteState {
         RouteState {
-            route_states: HashMap::with_capacity(2),
-            activity_states: HashMap::with_capacity(4),
-            route_keys: HashSet::with_capacity(2),
-            activity_keys: HashSet::with_capacity(4),
+            route_states: HashMap::with_capacity_and_hasher(2, BuildNoHashHasher::<i32>::default()),
+            activity_states: HashMap::with_capacity_and_hasher(4, BuildHasherDefault::<FxHasher>::default()),
+            route_keys: HashSet::with_capacity_and_hasher(2, BuildNoHashHasher::<i32>::default()),
+            activity_keys: HashSet::with_capacity_and_hasher(4, BuildNoHashHasher::<i32>::default()),
             flags: state_flags::NO_FLAGS,
         }
     }
@@ -311,7 +324,8 @@ impl RouteState {
         let route_states = other.route_states.clone();
         let route_keys = other.route_keys.clone();
         let activity_keys = other.activity_keys.clone();
-        let mut activity_states = HashMap::with_capacity(other.activity_states.len());
+        let mut activity_states =
+            HashMap::with_capacity_and_hasher(other.activity_states.len(), BuildHasherDefault::<FxHasher>::default());
 
         old_tour.all_activities().enumerate().for_each(|(index, activity)| {
             other.all_activity_keys().for_each(|key| {

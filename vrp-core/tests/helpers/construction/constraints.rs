@@ -31,27 +31,28 @@ pub fn create_simple_dynamic_demand(size: i32) -> Demand<SingleDimLoad> {
     }
 }
 
-pub fn create_constraint_pipeline_with_module(module: Arc<dyn ConstraintModule + Send + Sync>) -> ConstraintPipeline {
+pub fn create_constraint_pipeline_with_modules(
+    modules: Vec<Arc<dyn ConstraintModule + Send + Sync>>,
+) -> ConstraintPipeline {
     let mut constraint = ConstraintPipeline::default();
-    constraint.add_module(module);
+    modules.into_iter().for_each(|module| {
+        constraint.add_module(module);
+    });
     constraint
+}
+
+pub fn create_constraint_pipeline_with_module(module: Arc<dyn ConstraintModule + Send + Sync>) -> ConstraintPipeline {
+    create_constraint_pipeline_with_modules(vec![module])
 }
 
 pub fn create_constraint_pipeline_with_transport() -> ConstraintPipeline {
     create_constraint_pipeline_with_module(Arc::new(TransportConstraintModule::new(
         TestTransportCost::new_shared(),
         TestActivityCost::new_shared(),
-        Arc::new(|_| (None, None)),
         1,
-        2,
-        3,
     )))
 }
 
 pub fn create_constraint_pipeline_with_simple_capacity() -> ConstraintPipeline {
-    create_constraint_pipeline_with_module(Arc::new(CapacityConstraintModule::<SingleDimLoad>::new(
-        TestActivityCost::new_shared(),
-        TestTransportCost::new_shared(),
-        2,
-    )))
+    create_constraint_pipeline_with_module(Arc::new(CapacityConstraintModule::<SingleDimLoad>::new(2)))
 }

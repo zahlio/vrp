@@ -3,14 +3,15 @@
 mod breaks_test;
 
 use crate::constraints::*;
+use crate::extensions::{BreakTie, JobTie};
 use hashbrown::HashSet;
 use std::iter::once;
 use std::slice::Iter;
 use std::sync::Arc;
 use vrp_core::construction::constraints::*;
-use vrp_core::construction::heuristics::{ActivityContext, RouteContext, SolutionContext, UnassignedCode};
-use vrp_core::models::common::{Schedule, TimeWindow, ValueDimension};
-use vrp_core::models::problem::{ActivityCost, Job, Single, TransportCost};
+use vrp_core::construction::heuristics::*;
+use vrp_core::models::common::{Schedule, TimeWindow};
+use vrp_core::models::problem::{Job, Single};
 use vrp_core::models::solution::Activity;
 
 /// Implements break functionality with variable location and time.
@@ -19,11 +20,10 @@ pub struct BreakModule {
     code: i32,
     conditional: ConditionalJobModule,
     constraints: Vec<ConstraintVariant>,
-    activity: Arc<dyn ActivityCost + Send + Sync>,
-    transport: Arc<dyn TransportCost + Send + Sync>,
 }
 
 /// Specifies break policy.
+#[derive(Clone)]
 pub enum BreakPolicy {
     /// Allows to skip break if actual tour schedule doesn't intersect with vehicle time window.
     SkipIfNoIntersection,
@@ -32,11 +32,7 @@ pub enum BreakPolicy {
 }
 
 impl BreakModule {
-    pub fn new(
-        activity: Arc<dyn ActivityCost + Send + Sync>,
-        transport: Arc<dyn TransportCost + Send + Sync>,
-        code: i32,
-    ) -> Self {
+    pub fn new(code: i32) -> Self {
         Self {
             code,
             conditional: ConditionalJobModule::new(create_job_transition()),
@@ -45,8 +41,6 @@ impl BreakModule {
                 ConstraintVariant::HardActivity(Arc::new(BreakHardActivityConstraint { code })),
                 ConstraintVariant::SoftRoute(Arc::new(BreakSoftRouteConstraint {})),
             ],
-            activity,
-            transport,
         }
     }
 }
@@ -60,7 +54,7 @@ impl ConstraintModule for BreakModule {
 
     fn accept_solution_state(&self, ctx: &mut SolutionContext) {
         self.conditional.accept_solution_state(ctx);
-        remove_invalid_breaks(ctx, self.activity.as_ref(), self.transport.as_ref());
+        remove_invalid_breaks(ctx);
     }
 
     fn merge(&self, source: Job, candidate: Job) -> Result<Job, i32> {
@@ -161,7 +155,7 @@ fn is_required_job(routes: &[RouteContext], route_index: Option<usize>, job: &Jo
                 if let Some(route_index) = route_index {
                     can_be_scheduled(routes.get(route_index).unwrap(), job)
                 } else {
-                    let vehicle_id = get_vehicle_id_from_job(job).unwrap();
+                    let vehicle_id = get_vehicle_id_from_job(job);
                     let shift_index = get_shift_index(&job.dimens);
                     routes.iter().any(move |rc| {
                         is_correct_vehicle(&rc.route, vehicle_id, shift_index) && can_be_scheduled(rc, job)
@@ -178,11 +172,7 @@ fn is_required_job(routes: &[RouteContext], route_index: Option<usize>, job: &Jo
 /// Removes breaks which conditions are violated after ruin:
 /// * break without location served separately when original job is removed, but break is kept.
 /// * break is defined by interval, but its time is violated. This might happen due to departure time rescheduling.
-fn remove_invalid_breaks(
-    ctx: &mut SolutionContext,
-    activity: &(dyn ActivityCost + Send + Sync),
-    transport: &(dyn TransportCost + Send + Sync),
-) {
+fn remove_invalid_breaks(ctx: &mut SolutionContext) {
     let breaks_to_remove = ctx
         .routes
         .iter()
@@ -225,12 +215,10 @@ fn remove_invalid_breaks(
     breaks_to_remove.iter().for_each(|break_job| {
         ctx.routes.iter_mut().filter(|route_ctx| route_ctx.route.tour.contains(break_job)).for_each(|route_ctx| {
             route_ctx.route_mut().tour.remove(break_job);
-
-            update_route_schedule(route_ctx, activity, transport)
         })
     });
 
-    ctx.unassigned.extend(breaks_to_remove.into_iter().map(|b| (b, UnassignedCode::Unknown)));
+    ctx.unassigned.extend(breaks_to_remove.into_iter().map(|b| (b, UnassignmentInfo::Unknown)));
 
     // NOTE remove stale breaks from violation list
     ctx.ignored.extend(
@@ -246,7 +234,7 @@ fn remove_invalid_breaks(
 //region Helpers
 
 fn is_break_single(single: &Arc<Single>) -> bool {
-    single.dimens.get_value::<String>("type").map_or(false, |t| t == "break")
+    single.dimens.get_job_type().map_or(false, |t| t == "break")
 }
 
 fn as_break_job(activity: &Activity) -> Option<&Arc<Single>> {
@@ -262,7 +250,7 @@ fn can_be_scheduled(rc: &RouteContext, break_job: &Arc<Single>) -> bool {
     let departure = rc.route.tour.start().unwrap().schedule.departure;
     let arrival = rc.route.tour.end().map_or(0., |end| end.schedule.arrival);
     let tour_tw = TimeWindow::new(departure, arrival);
-    let policy = break_job.dimens.get_value::<BreakPolicy>("policy").unwrap_or(&BreakPolicy::SkipIfNoIntersection);
+    let policy = break_job.dimens.get_break_policy().unwrap_or(BreakPolicy::SkipIfNoIntersection);
 
     get_break_time_windows(break_job, departure).any(|break_tw| match policy {
         BreakPolicy::SkipIfNoIntersection => break_tw.intersects(&tour_tw),

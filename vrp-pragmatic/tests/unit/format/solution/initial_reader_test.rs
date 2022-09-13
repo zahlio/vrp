@@ -27,7 +27,7 @@ fn create_basic_problem(breaks: Option<Vec<VehicleBreak>>) -> Problem {
                 shifts: vec![VehicleShift { breaks, ..create_default_vehicle_shift() }],
                 ..create_default_vehicle_type()
             }],
-            profiles: create_default_matrix_profiles(),
+            ..create_default_fleet()
         },
         ..create_empty_problem()
     }
@@ -50,7 +50,7 @@ fn create_unassigned_jobs(job_ids: &[&str]) -> Option<Vec<UnassignedJob>> {
                 reasons: vec![UnassignedJobReason {
                     code: "NO_REASON_FOUND".to_string(),
                     description: "unknown".to_string(),
-                    detail: None,
+                    details: None,
                 }],
             })
             .collect(),

@@ -61,9 +61,9 @@ pub const LATEST_ARRIVAL_KEY: i32 = 1;
 pub const WAITING_KEY: i32 = 2;
 /// A key which tracks total distance.
 pub const TOTAL_DISTANCE_KEY: i32 = 3;
-/// A key which track total duration.
+/// A key which tracks total duration.
 pub const TOTAL_DURATION_KEY: i32 = 4;
-/// A key which track duration limit.
+/// A key which tracks global duration limit.
 pub const LIMIT_DURATION_KEY: i32 = 5;
 
 /// A key which tracks current vehicle capacity.
@@ -77,6 +77,21 @@ pub const RELOAD_INTERVALS_KEY: i32 = 14;
 /// A key which tracks max load in tour.
 pub const MAX_LOAD_KEY: i32 = 15;
 
+#[allow(clippy::unnecessary_wraps)]
+fn fail(code: i32) -> Option<ActivityConstraintViolation> {
+    Some(ActivityConstraintViolation { code, stopped: true })
+}
+
+#[allow(clippy::unnecessary_wraps)]
+fn stop(code: i32) -> Option<ActivityConstraintViolation> {
+    Some(ActivityConstraintViolation { code, stopped: false })
+}
+
+#[allow(clippy::unnecessary_wraps)]
+fn success() -> Option<ActivityConstraintViolation> {
+    None
+}
+
 mod pipeline;
 pub use self::pipeline::*;
 
@@ -89,6 +104,9 @@ pub use self::capacity::*;
 mod locking;
 pub use self::locking::*;
 
+mod shared_resource;
+pub use self::shared_resource::*;
+
 mod tour_size;
 pub use self::tour_size::*;
 
@@ -98,16 +116,5 @@ pub use self::conditional::*;
 mod fleet_usage;
 pub use self::fleet_usage::*;
 
-use crate::construction::heuristics::RouteContext;
-use crate::models::problem::{ActivityCost, TransportCost};
-
-/// Updates route schedule.
-pub fn update_route_schedule(
-    route_ctx: &mut RouteContext,
-    activity: &(dyn ActivityCost + Send + Sync),
-    transport: &(dyn TransportCost + Send + Sync),
-) {
-    TransportConstraintModule::update_route_schedules(route_ctx, activity, transport);
-    TransportConstraintModule::update_route_states(route_ctx, activity, transport);
-    TransportConstraintModule::update_statistics(route_ctx, transport);
-}
+mod travel_limit;
+pub use self::travel_limit::*;

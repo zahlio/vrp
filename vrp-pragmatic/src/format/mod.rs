@@ -15,6 +15,7 @@ use vrp_core::models::Problem as CoreProblem;
 mod coord_index;
 pub use self::coord_index::CoordIndex;
 
+pub mod entities;
 pub mod problem;
 pub mod solution;
 
@@ -133,6 +134,7 @@ const TOUR_SIZE_CONSTRAINT_CODE: i32 = 11;
 const TOUR_ORDER_CONSTRAINT_CODE: i32 = 12;
 const GROUP_CONSTRAINT_CODE: i32 = 13;
 const COMPATIBILITY_CONSTRAINT_CODE: i32 = 14;
+const RELOAD_RESOURCE_CONSTRAINT_CODE: i32 = 15;
 
 /// An job id to job index.
 pub type JobIndex = HashMap<String, CoreJob>;

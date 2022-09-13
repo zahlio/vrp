@@ -18,3 +18,41 @@ where
         }
     }
 }
+
+impl<L, R, T> Iterator for Either<L, R>
+where
+    L: Iterator<Item = T>,
+    R: Iterator<Item = T>,
+{
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Left(it) => it.next(),
+            Self::Right(it) => it.next(),
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Self::Left(it) => it.size_hint(),
+            Self::Right(it) => it.size_hint(),
+        }
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        match self {
+            Self::Left(it) => it.nth(n),
+            Self::Right(it) => it.nth(n),
+        }
+    }
+
+    fn fold<B, F>(self, init: B, f: F) -> B
+    where
+        F: FnMut(B, Self::Item) -> B,
+    {
+        match self {
+            Self::Left(it) => it.fold(init, f),
+            Self::Right(it) => it.fold(init, f),
+        }
+    }
+}

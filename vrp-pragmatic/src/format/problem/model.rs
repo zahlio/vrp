@@ -342,6 +342,7 @@ pub struct VehicleDispatchLimit {
 
 /// Specifies a place where vehicle can load or unload cargo.
 #[derive(Clone, Deserialize, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct VehicleReload {
     /// A place location.
     pub location: Location,
@@ -356,6 +357,10 @@ pub struct VehicleReload {
     /// A tag which will be propagated back within corresponding activity in solution.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tag: Option<String>,
+
+    /// A shared reload resource id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resource_id: Option<String>,
 }
 
 /// Vehicle limits.
@@ -515,13 +520,32 @@ pub struct MatrixProfile {
     pub speed: Option<f64>,
 }
 
+/// Specifies vehicle resource type.
+#[derive(Clone, Deserialize, Debug, Serialize)]
+#[serde(tag = "type")]
+pub enum VehicleResource {
+    /// A shared reload resource.
+    #[serde(rename(deserialize = "reload", serialize = "reload"))]
+    Reload {
+        /// Resource id.
+        id: String,
+        /// A total resource capacity.
+        capacity: Vec<i32>,
+    },
+}
+
 /// Specifies fleet.
 #[derive(Clone, Deserialize, Debug, Serialize)]
 pub struct Fleet {
     /// Vehicle types.
     pub vehicles: Vec<VehicleType>,
+
     /// Routing profiles.
     pub profiles: Vec<MatrixProfile>,
+
+    /// Specifies vehicle resources.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resources: Option<Vec<VehicleResource>>,
 }
 
 // endregion
@@ -532,7 +556,7 @@ pub struct Fleet {
 #[derive(Clone, Deserialize, Debug, Serialize)]
 #[serde(tag = "type")]
 pub enum Objective {
-    /// An objective to minimize total cost.
+    /// An objective to minimize total cost as linear combination of total time and distance.
     #[serde(rename(deserialize = "minimize-cost", serialize = "minimize-cost"))]
     MinimizeCost,
 

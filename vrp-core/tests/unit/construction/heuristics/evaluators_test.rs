@@ -29,7 +29,7 @@ fn evaluate_job_insertion(
     let route_selector = AllRouteSelector::default();
     let leg_selector = VariableLegSelector::new(insertion_ctx.environment.random.clone());
     let result_selector = BestResultSelector::default();
-    let routes = route_selector.select(insertion_ctx, vec![].as_slice()).collect::<Vec<_>>();
+    let routes = route_selector.select(insertion_ctx, &[]).collect::<Vec<_>>();
 
     let eval_ctx = EvaluationContext {
         constraint: &insertion_ctx.problem.constraint,
@@ -39,7 +39,7 @@ fn evaluate_job_insertion(
     };
 
     routes.iter().fold(InsertionResult::make_failure(), |acc, route_ctx| {
-        evaluate_job_insertion_in_route(&insertion_ctx, &eval_ctx, &route_ctx, insertion_position, acc)
+        evaluate_job_insertion_in_route(insertion_ctx, &eval_ctx, route_ctx, insertion_position, acc)
     })
 }
 
@@ -255,12 +255,13 @@ mod multi {
         case1: vec![(0, 3), (1, 1111)],
         case2: vec![(0, 1111), (1, 3)],
     }
+
     fn can_handle_activity_constraint_violation_impl(singles: Vec<InsertionData>) {
         let job = Job::Multi(test_multi_with_id(
             "multi",
             singles
                 .iter()
-                .zip(0usize..)
+                .zip(0..)
                 .map(|((_, loc), index)| {
                     SingleBuilder::default().id(&index.to_string()).location(Some(*loc)).build_shared()
                 })

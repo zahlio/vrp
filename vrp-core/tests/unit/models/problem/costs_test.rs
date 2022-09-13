@@ -33,7 +33,7 @@ fn can_return_error_when_mixing_timestamps() {
     let p1 = Profile::new(1, None);
 
     assert_eq!(
-        TimeAwareMatrixTransportCost::new(vec![create_matrix_data(Profile::default(), None, (0., 1), (0., 1))], 1)
+        TimeAwareMatrixTransportCost::new(vec![create_matrix_data(Profile::default(), None, (0., 1), (0., 1))], 1,)
             .err(),
         Some("time-aware routing requires all matrices to have timestamp".to_string())
     );
@@ -51,7 +51,7 @@ fn can_return_error_when_mixing_timestamps() {
     );
 
     assert_eq!(
-        TimeAwareMatrixTransportCost::new(vec![create_matrix_data(p0.clone(), Some(0.), (0., 1), (0., 1))], 1).err(),
+        TimeAwareMatrixTransportCost::new(vec![create_matrix_data(p0.clone(), Some(0.), (0., 1), (0., 1))], 1,).err(),
         Some("should not use time aware matrix routing with single matrix".to_string())
     );
 
@@ -125,7 +125,7 @@ fn can_search_for_reserved_time_impl(times: Vec<(f64, f64)>, tests: Vec<((f64, f
 
     let reserved_time_func = create_reserved_times_func(reserved_times);
 
-    if let Some(reserved_time_func) = reserved_time_func.ok() {
+    if let Ok(reserved_time_func) = reserved_time_func {
         tests.iter().for_each(|((s, e), expected)| {
             let interval = TimeWindow::new(*s, *e);
             let expected = expected.and_then(|idx| times.get(idx)).map(|(s, e)| TimeWindow::new(*s, *e));

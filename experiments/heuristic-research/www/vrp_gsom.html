@@ -3,18 +3,18 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Heuristic Research Playground: Vehicle Routing Problem</title>
+    <title>Heuristic Research Playground: 3D vector data</title>
     <link rel="stylesheet" href="./style.css">
     <link rel="stylesheet" href="./experiment.style.css">
 </head>
 <body>
 <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
-<script src="./d3.v7.min.js" charset="utf-8"></script>
-<script src="./vrp.bootstrap.js"></script>
+<script src="./vrp_gsom.bootstrap.js"></script>
 <main>
     <h1>Heuristic Research Playground</h1>
+    <div id="coord"></div>
+    <canvas id="canvas" width="600" height="400"></canvas>
     <div id="status">Loading WebAssembly...</div>
-    <div id="svg"></div>
     <div id="control">
         <label for="plot-population">Population: </label>
         <select id="plot-population">
@@ -36,8 +36,12 @@
         <input type='file' id="file-selector" accept='.txt,.vrp'><br>
         <br/>
 
+        <div id="3d-control">
+            <label for="pitch">Pitch: </label> <input type="range" min="0" max="157" id="pitch" value="10"> <br/>
+            <label for="yaw">Yaw: </label> <input type="range" min="0" max="314" id="yaw" value="50">
+        </div>
         <label for="generations">Gens: </label> <input type="range" min="0" max="1000" id="generations" value="0" class="hide"> <br/>
-        <input type="button" id="run" value="Run experiments" class="hide" />
+        <input type="button" id="run" value="Run experiments" />
     </div>
 </main>
 <footer>

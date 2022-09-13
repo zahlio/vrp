@@ -68,7 +68,7 @@ fn create_test_problem(
         .map(|(vehicle_id, order, position, job_ids)| {
             let vehicle_id = vehicle_id.to_string();
             Arc::new(Lock {
-                condition: Arc::new(move |actor| actor.vehicle.dimens.get_id().unwrap().to_string() == vehicle_id),
+                condition: Arc::new(move |actor| *actor.vehicle.dimens.get_id().unwrap() == vehicle_id),
                 details: vec![LockDetail {
                     order,
                     position,
@@ -80,20 +80,9 @@ fn create_test_problem(
         .collect::<Vec<_>>();
 
     let mut constraint = ConstraintPipeline::default();
-    constraint.add_module(Arc::new(TransportConstraintModule::new(
-        transport.clone(),
-        activity.clone(),
-        Arc::new(|_| (None, None)),
-        1,
-        2,
-        3,
-    )));
+    constraint.add_module(Arc::new(TransportConstraintModule::new(transport.clone(), activity.clone(), 1)));
     constraint.add_module(Arc::new(StrictLockingModule::new(&fleet, locks.as_slice(), 4)));
-    constraint.add_module(Arc::new(CapacityConstraintModule::<SingleDimLoad>::new(
-        activity.clone(),
-        transport.clone(),
-        5,
-    )));
+    constraint.add_module(Arc::new(CapacityConstraintModule::<SingleDimLoad>::new(5)));
 
     Problem {
         fleet: fleet.clone(),
@@ -305,6 +294,7 @@ can_restore_solution! {
     ),
 }
 
+#[allow(clippy::type_complexity)]
 fn can_restore_solution_impl(
     singles: Vec<(&str, JobData)>,
     multies: Vec<(&str, Vec<JobData>)>,

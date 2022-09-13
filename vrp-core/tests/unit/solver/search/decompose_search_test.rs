@@ -23,7 +23,7 @@ fn can_create_multiple_insertion_ctxs_with_unassigned() {
     let environment = Arc::new(Environment::default());
     let (problem, mut solution) = generate_matrix_routes_with_defaults(5, 6, false);
     solution.registry.free_actor(&solution.routes[0].actor);
-    solution.unassigned.extend(solution.routes[0].tour.jobs().map(|job| (job, UnassignedCode::Unknown)));
+    solution.unassigned.extend(solution.routes[0].tour.jobs().map(|job| (job, UnassignmentInfo::Unknown)));
     solution.routes.remove(0);
     let individual = InsertionContext::new_from_solution(Arc::new(problem), (solution, None), environment);
 
@@ -53,7 +53,7 @@ fn can_mutate() {
 
     let refinement_ctx = RefinementContext::new(problem.clone(), population, TelemetryMode::None, environment.clone());
     let insertion_ctx = InsertionContext::new_from_solution(problem.clone(), (solution, None), environment.clone());
-    let inner_search = create_default_heuristic_operator(problem.clone(), environment);
+    let inner_search = create_default_heuristic_operator(problem, environment);
     let decompose_search = DecomposeSearch::new(inner_search, (2, 2), 10);
 
     let result = decompose_search.search(&refinement_ctx, &insertion_ctx);

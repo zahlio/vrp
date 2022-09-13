@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use wasm_bindgen::prelude::*;
 
 mod plots;
-pub use self::plots::{draw_plots, Axes};
+pub use self::plots::{draw_function_plots, Axes};
 
 mod solver;
 pub use self::solver::solve_function;
@@ -22,10 +22,13 @@ pub type MatrixData = HashMap<Coordinate, f64>;
 
 /// Represents a single experiment observation data.
 pub enum ObservationData {
-    /// Observation for benchmarking function experiment.
+    /// Observation for benchmarking 3D function experiment.
     Function(DataPoint3D),
+
     /// Observation for Vehicle Routing Problem experiment.
-    Vrp(DataGraph),
+    /// DataGraph contains solution represented as a directed graph, DataPoint3D represents solution
+    /// as a point in 3D space where meaning of each dimension depends on problem variant.
+    Vrp((DataGraph, DataPoint3D)),
 }
 
 lazy_static! {
@@ -86,11 +89,14 @@ pub fn get_bundled_edges(generation: usize) -> JsValue {
         .unwrap_or_else(Vec::new);
 
     let (nodes, edges) = get_forced_bundled_edges(graphs.as_slice());
-    let result = GraphResult { nodes, edges };
 
+    serialize(GraphResult { nodes, edges })
+}
+
+fn serialize<T: Serialize>(value: T) -> JsValue {
     let mut buffer = String::new();
     let writer = unsafe { BufWriter::new(buffer.as_mut_vec()) };
-    serde_json::to_writer_pretty(writer, &result).expect("cannot serialize bundled edges");
+    serde_json::to_writer_pretty(writer, &value).expect("cannot serialize");
 
     JsValue::from_str(buffer.as_str())
 }

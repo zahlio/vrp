@@ -1,5 +1,5 @@
 use crate::construction::constraints::{ConstraintPipeline, TOTAL_DISTANCE_KEY, TOTAL_DURATION_KEY};
-use crate::construction::heuristics::{InsertionContext, RegistryContext, SolutionContext, UnassignedCode};
+use crate::construction::heuristics::{InsertionContext, RegistryContext, SolutionContext, UnassignmentInfo};
 use crate::helpers::construction::constraints::create_constraint_pipeline_with_transport;
 use crate::helpers::models::problem::*;
 use crate::helpers::models::solution::create_route_context_with_activities;
@@ -94,7 +94,7 @@ pub fn create_simple_insertion_ctx(distance: f64, unassigned: usize) -> Insertio
         insertion_ctx
             .solution
             .unassigned
-            .insert(problem.jobs.all().next().clone().expect("at least one job expected"), UnassignedCode::Unknown);
+            .insert(problem.jobs.all().next().expect("at least one job expected"), UnassignmentInfo::Unknown);
     });
 
     insertion_ctx
@@ -113,7 +113,7 @@ pub fn get_sorted_customer_ids_from_jobs(jobs: &[Job]) -> Vec<String> {
 }
 
 pub fn get_customer_ids_from_jobs(jobs: &[Job]) -> Vec<String> {
-    jobs.iter().map(|job| get_customer_id(&job)).collect()
+    jobs.iter().map(get_customer_id).collect()
 }
 
 pub fn get_customer_ids_from_routes(insertion_ctx: &InsertionContext) -> Vec<Vec<String>> {

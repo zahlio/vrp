@@ -37,7 +37,7 @@ fn can_use_init_solution_with_dispatch() {
                 capacity: vec![1],
                 ..create_default_vehicle_type()
             }],
-            profiles: create_default_matrix_profiles(),
+            ..create_default_fleet()
         },
         ..create_empty_problem()
     };
@@ -180,7 +180,7 @@ fn can_use_init_solution_with_dispatch() {
     };
     let environment = Arc::new(Environment::default());
     let matrix = create_matrix_from_problem(&problem);
-    let core_problem = Arc::new((problem.clone(), vec![matrix]).read_pragmatic().unwrap());
+    let core_problem = Arc::new((problem, vec![matrix]).read_pragmatic().unwrap());
     let core_solution = to_core_solution(&init_solution, core_problem.clone(), environment.random.clone()).unwrap();
 
     let (core_solution, _, metrics) =
