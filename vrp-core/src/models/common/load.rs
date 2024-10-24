@@ -8,7 +8,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::iter::Sum;
 use std::ops::{Add, ControlFlow, Mul, Sub};
 
-const LOAD_DIMENSION_SIZE: usize = 8;
+const LOAD_DIMENSION_SIZE: usize = 32;
 
 /// Represents a load type used to represent customer's demand or vehicle's load.
 pub trait Load: Add + Sub + PartialOrd + Copy + Default + Debug + Send + Sync {
